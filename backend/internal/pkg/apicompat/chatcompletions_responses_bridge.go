@@ -1666,6 +1666,12 @@ type ChatCompletionsToResponsesStreamState struct {
 	// codex 按 namespace+name 路由。
 	NamespaceTools map[string]NamespacedToolName
 
+	// StripToolCallMarkup 开启后从正文中剔除上游回显的原生工具调用标记
+	// （<tool_call>…</tool_call>，见 chatToolCallMarkupFilter）。仅对会把结构化
+	// tool_calls 同时回显进 content 的上游（如 MiMo）开启。
+	StripToolCallMarkup bool
+	markupFilter        chatToolCallMarkupFilter
+
 	// toolIsCustom 记录每个工具调用宣告时的类型判定，保证 added/done 事件的
 	// 项类型一致。
 	toolIsCustom map[int]bool
@@ -1733,6 +1739,33 @@ func (state *ChatCompletionsToResponsesStreamState) allocOutputIndex() int {
 	return idx
 }
 
+// emitChatTextDelta 下发一段正文增量。开启 StripToolCallMarkup 时先经标记
+// 过滤；过滤后为空（整段都是回显的工具调用标记）则不打开空的 message 项。
+func emitChatTextDelta(state *ChatCompletionsToResponsesStreamState, delta string) []ResponsesStreamEvent {
+	if state.StripToolCallMarkup {
+		delta = state.markupFilter.Push(delta)
+	}
+	return writeChatTextDelta(state, delta)
+}
+
+func writeChatTextDelta(state *ChatCompletionsToResponsesStreamState, delta string) []ResponsesStreamEvent {
+	if delta == "" {
+		return nil
+	}
+	// First real content closes the reasoning item, then opens the
+	// message item and its output_text content part.
+	events := closeChatReasoningItem(state)
+	events = append(events, ensureChatToResponsesMessageItem(state)...)
+	events = append(events, ensureChatToResponsesTextPart(state)...)
+	_, _ = state.Text.WriteString(delta)
+	return append(events, chatToResponsesEvent(state, "response.output_text.delta", &ResponsesStreamEvent{
+		OutputIndex:  state.MessageIndex,
+		ContentIndex: 0,
+		Delta:        delta,
+		ItemID:       state.MessageItemID,
+	}))
+}
+
 // ChatCompletionsChunkToResponsesEvents converts one Chat Completions stream
 // chunk into zero or more Responses stream events.
 func ChatCompletionsChunkToResponsesEvents(
@@ -1775,18 +1808,7 @@ func ChatCompletionsChunkToResponsesEvents(
 			}))
 		}
 		if choice.Delta.Content != nil && *choice.Delta.Content != "" {
-			// First real content closes the reasoning item, then opens the
-			// message item and its output_text content part.
-			events = append(events, closeChatReasoningItem(state)...)
-			events = append(events, ensureChatToResponsesMessageItem(state)...)
-			events = append(events, ensureChatToResponsesTextPart(state)...)
-			_, _ = state.Text.WriteString(*choice.Delta.Content)
-			events = append(events, chatToResponsesEvent(state, "response.output_text.delta", &ResponsesStreamEvent{
-				OutputIndex:  state.MessageIndex,
-				ContentIndex: 0,
-				Delta:        *choice.Delta.Content,
-				ItemID:       state.MessageItemID,
-			}))
+			events = append(events, emitChatTextDelta(state, *choice.Delta.Content)...)
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
 			idx := 0
@@ -1854,6 +1876,11 @@ func FinalizeChatCompletionsResponsesStream(state *ChatCompletionsToResponsesStr
 	}
 	var events []ResponsesStreamEvent
 	events = append(events, ensureChatToResponsesCreated(state)...)
+
+	// 补回过滤器暂扣的正文（被切开的标记前缀、未闭合的块），保证正文不被误吞。
+	if state.StripToolCallMarkup {
+		events = append(events, writeChatTextDelta(state, state.markupFilter.Flush())...)
+	}
 
 	// Close a reasoning item that never transitioned to content (reasoning-only
 	// or empty completion).
