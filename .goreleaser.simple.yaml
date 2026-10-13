@@ -1,4 +1,4 @@
-# 简化版 GoReleaser 配置 - 仅发布 x86_64 GHCR 镜像
+# 简化版 GoReleaser 配置 - 仅构建 x86_64 制品
 version: 2
 
 project_name: sub2api
@@ -36,27 +36,10 @@ checksum:
 changelog:
   disable: true
 
-# 仅 GHCR x86_64 镜像
-dockers:
-  - id: ghcr-amd64
-    goos: linux
-    goarch: amd64
-    image_templates:
-      - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:{{ .Version }}-amd64"
-      - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:{{ .Version }}"
-      - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest"
-    dockerfile: Dockerfile.goreleaser
-    use: buildx
-    extra_files:
-      - deploy/docker-entrypoint.sh
-      - backend/resources
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.revision={{ .Commit }}"
-      - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPO_OWNER }}/{{ .Env.GITHUB_REPO_NAME }}"
-
-# 跳过 manifests（单架构不需要）
+# 镜像由受控发布脚本构建
+# Images are handled only by release-images.sh, which requires an explicit
+# destination and publication opt-in. Direct GoReleaser cannot push images.
+dockers: []
 docker_manifests: []
 
 release:
@@ -70,7 +53,7 @@ release:
   skip_upload: true
   header: |
     > AI API Gateway Platform - 将 AI 订阅配额分发和管理
-    > ⚡ Simple Release: 仅包含 x86_64 GHCR 镜像
+    > ⚡ Simple Release: 仅包含 x86_64 镜像
 
     {{ .Env.TAG_MESSAGE }}
 
@@ -81,7 +64,7 @@ release:
 
     **Docker (x86_64 only):**
     ```bash
-    docker pull ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:{{ .Version }}
+    docker pull {{ .Env.IMAGE_REPOSITORY }}:{{ .Version }}
     ```
 
     ## 📚 Documentation

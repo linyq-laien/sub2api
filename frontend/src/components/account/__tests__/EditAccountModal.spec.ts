@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import {
   BUILTIN_PLATFORM_CATALOG,
   resetPlatformCatalog,
@@ -1615,6 +1615,53 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_oauth_responses_websockets_v2_mode).toBe('http_bridge')
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_oauth_responses_websockets_v2_enabled).toBe(true)
+  })
+
+  it('saves a Desktop reauthorization handle without requiring a manual cookie', async () => {
+    const account = buildAccount()
+    account.platform = 'mimo'
+    account.credentials = { account_mode: 'desktop', api_protocol: 'adaptive' }
+    account.credentials_status = { has_mimo_session_cookie: true }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+    wrapper.getComponent({ name: 'MiMoDesktopLogin' }).vm.$emit('update:modelValue', 'reauthorized-session')
+    await flushPromises()
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      account_mode: 'desktop', mimo_login_session_id: 'reauthorized-session', api_key: ''
+    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('mimo_session_cookie')
+  })
+
+  it('preserves a redacted MiMo Desktop session and requires a new key when switching products', async () => {
+    const account = buildAccount()
+    account.platform = 'mimo'
+    account.credentials = { account_mode: 'desktop', api_protocol: 'adaptive' }
+    account.credentials_status = { has_mimo_session_cookie: true }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      account_mode: 'desktop', api_key: ''
+    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('mimo_session_cookie')
+    updateAccountMock.mockClear()
+    const planButton = wrapper.findAll('button').find(button => button.text() === 'Token Plan')
+    expect(planButton).toBeDefined()
+    await planButton!.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).not.toHaveBeenCalled()
+    await wrapper.get('input[placeholder="tp-... / ttp-..."]').setValue('tp-test-key')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      account_mode: 'token_plan', api_key: 'tp-test-key', mimo_session_cookie: '',
+      base_url: 'https://token-plan-cn.xiaomimimo.com/v1'
+    })
   })
 
   it('allows saving apikey account when backend redacted api_key but credentials_status reports it exists', async () => {

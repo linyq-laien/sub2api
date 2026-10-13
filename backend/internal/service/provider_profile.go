@@ -88,6 +88,25 @@ func (p *ProviderProfile) SupportsProtocol(mode, protocol string) bool {
 // 上游协议分流方式、Responses 路径约定与 IsMultiProtocolAPIKeyProvider 归属。
 // 默认端点需与前端 credentialsBuilder.ts 的预设保持一致。
 var providerProfiles = map[string]*ProviderProfile{
+	PlatformMiMo: {
+		Platform:         PlatformMiMo,
+		DefaultMode:      AccountModePayG,
+		DefaultTestModel: "mimo-v2.6-flash",
+		Modes: map[string]ProviderEndpoints{
+			AccountModePayG: {BaseURLs: map[string]string{
+				APIProtocolChatCompletions: "https://api.xiaomimimo.com/v1",
+				APIProtocolAnthropic:       "https://api.xiaomimimo.com/anthropic",
+			}},
+			MiMoModeTokenPlan: {BaseURLs: map[string]string{
+				APIProtocolChatCompletions: "https://token-plan-cn.xiaomimimo.com/v1",
+				APIProtocolAnthropic:       "https://token-plan-cn.xiaomimimo.com/anthropic",
+			}},
+			// Desktop membership uses a Xiaomi business session cookie, not an API key.
+			MiMoModeDesktop: {BaseURLs: map[string]string{
+				APIProtocolChatCompletions: "https://mimo-server-cn.xiaomimimo.com/api/route/chat/completions",
+			}},
+		},
+	},
 	PlatformKimi: {
 		Platform:    PlatformKimi,
 		DefaultMode: AccountModePayG,

@@ -79,6 +79,7 @@ const { t } = useI18n()
 interface Props {
   platform: AccountPlatform
   type: AccountType
+  accountMode?: string
   authMode?: string
   planType?: string
   privacyMode?: string
@@ -94,6 +95,11 @@ const normalizedAuthMode = computed(() =>
 )
 
 const typeLabel = computed(() => {
+  if (props.platform === 'mimo') {
+    if (props.accountMode === 'desktop') return 'Desktop'
+    if (props.accountMode === 'token_plan') return 'Token Plan'
+    return t('admin.accounts.cnProviders.accountMode.payg')
+  }
   if (props.platform === 'openai' && props.type === 'oauth') {
     if (normalizedAuthMode.value === 'agentidentity') return 'Agent Identity'
     if (normalizedAuthMode.value === 'personalaccesstoken') return 'PAT'

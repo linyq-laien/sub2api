@@ -10,6 +10,7 @@
 
 services:
   sub2api:
+    image: ${SUB2API_IMAGE:-local/sub2api-mimo:dev}
     build:
       context: ..
       dockerfile: Dockerfile

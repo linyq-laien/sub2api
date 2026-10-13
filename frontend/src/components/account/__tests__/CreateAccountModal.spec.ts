@@ -510,6 +510,45 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     })
   })
 
+  it('submits the server authorization handle without a Desktop cookie', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="platform-button-mimo"]').trigger('click')
+    await wrapper.get('[data-testid="generic-account-mode"]').findAll('button')[1].trigger('click')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('MiMo authorized')
+    wrapper.getComponent({ name: 'MiMoDesktopLogin' }).vm.$emit('update:modelValue', 'opaque-session')
+    await flushPromises()
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    const credentials = createAccountMock.mock.calls[0]?.[0]?.credentials
+    expect(credentials).toMatchObject({ account_mode: 'desktop', mimo_login_session_id: 'opaque-session' })
+    expect(credentials).not.toHaveProperty('mimo_session_cookie')
+    expect(credentials).not.toHaveProperty('api_key')
+  })
+
+  it('isolates MiMo Desktop cookies from subscription and payg keys', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="platform-button-mimo"]').trigger('click')
+    const modes = wrapper.get('[data-testid="generic-account-mode"]').findAll('button')
+    expect(modes).toHaveLength(3)
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-old-key')
+    await modes[1].trigger('click')
+    await flushPromises()
+    expect((wrapper.get('form#create-account-form input[type="password"]').element as HTMLInputElement).value).toBe('')
+    expect(wrapper.get('[data-testid="mimo-mode-hint"]').text()).toContain('desktopDesc')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('MiMo Desktop')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('serviceToken=test; userId=123')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    const credentials = createAccountMock.mock.calls[0]?.[0]?.credentials
+    expect(credentials).toMatchObject({
+      account_mode: 'desktop', mimo_session_cookie: 'serviceToken=test; userId=123',
+      base_url: 'https://mimo-server-cn.xiaomimimo.com/api/route/chat/completions',
+    })
+    expect(credentials).not.toHaveProperty('api_key')
+    expect(credentials.api_base_urls).not.toHaveProperty('anthropic')
+    expect(credentials.api_base_urls).not.toHaveProperty('responses')
+  })
+
   describe('providers using the generic form', () => {
     const serverOnlyProviders = {
       platforms: [
@@ -659,7 +698,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     const wrapper = mountModal()
     const labels = (testid: string) =>
       wrapper.get(`[data-testid="${testid}"]`).findAll('button').map(button => button.text().trim())
-    expect(labels('platform-row-cn')).toEqual(['Kimi', 'Zhipu GLM', 'DeepSeek', 'MiniMax'])
+    expect(labels('platform-row-cn')).toEqual(['Kimi', 'Zhipu GLM', 'DeepSeek', 'MiniMax', 'Xiaomi MiMo'])
     expect(labels('platform-row-aggregators')).toEqual(['OpenCode', 'Command Code', 'Cline'])
   })
 

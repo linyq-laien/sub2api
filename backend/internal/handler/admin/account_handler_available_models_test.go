@@ -38,6 +38,35 @@ func setupAvailableModelsRouter(adminSvc service.AdminService) *gin.Engine {
 	return router
 }
 
+func TestAccountHandlerGetAvailableModels_MiMoFallbackAndAliases(t *testing.T) {
+	for _, mode := range []string{service.MiMoModeDesktop, service.MiMoModeTokenPlan, service.AccountModePayG} {
+		for _, alias := range []string{"", "my-mimo"} {
+			t.Run(mode+"/"+alias, func(t *testing.T) {
+				credentials := map[string]any{"account_mode": mode}
+				expected := "mimo-v2.6-flash"
+				if alias != "" {
+					credentials["model_mapping"] = map[string]any{alias: expected}
+					expected = alias
+				}
+				svc := &availableModelsAdminService{stubAdminService: newStubAdminService(), account: service.Account{
+					ID: 44, Platform: service.PlatformMiMo, Type: service.AccountTypeAPIKey, Credentials: credentials,
+				}}
+				rec := httptest.NewRecorder()
+				setupAvailableModelsRouter(svc).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/44/models", nil))
+				require.Equal(t, http.StatusOK, rec.Code)
+				var response struct {
+					Data []struct {
+						ID string `json:"id"`
+					} `json:"data"`
+				}
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+				require.Len(t, response.Data, 1)
+				require.Equal(t, expected, response.Data[0].ID)
+			})
+		}
+	}
+}
+
 type syncUpstreamHTTPUpstream struct {
 	resp      *http.Response
 	responses []*http.Response

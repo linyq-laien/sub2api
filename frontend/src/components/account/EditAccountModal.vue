@@ -148,6 +148,7 @@
             </button>
           </div>
         </div>
+        <p v-if="account.platform === 'mimo'" class="input-hint">{{ t(`admin.accounts.mimo.${editAccountMode}Desc`) }}</p>
         <!-- Account Mode Selection (CN providers) -->
         <div v-if="isCNApiKeyAccount && isCNProviderPlatform(account.platform)">
           <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
@@ -225,8 +226,9 @@
           </div>
           <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
         </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
+        <MiMoDesktopLogin v-if="isMiMoDesktop && show" :key="account?.id" v-model="mimoLoginSessionID" v-model:cookie="editApiKey" />
+        <div v-if="!isMiMoDesktop">
+          <label class="input-label">{{ isMiMoDesktop ? t('admin.accounts.mimo.cookie') : t('admin.accounts.apiKey') }}</label>
           <input
             v-model="editApiKey"
             type="password"
@@ -236,7 +238,7 @@
             data-lpignore="true"
             data-bwignore="true"
             :placeholder="
-              account.platform === 'openai'
+              isMiMoDesktop ? 'serviceToken=...; userId=...' : account.platform === 'mimo' ? (editAccountMode === 'token_plan' ? 'tp-... / ttp-...' : 'sk-...') : account.platform === 'openai'
                 ? 'sk-proj-...'
                 : account.platform === 'gemini'
                   ? 'AIza...'
@@ -1723,7 +1725,7 @@
             }}
           </p>
           <div
-            v-if="account?.type === 'apikey'"
+            v-if="account?.type === 'apikey' && !isMiMoDesktop"
             class="mt-3 flex items-center justify-between gap-3"
           >
             <div class="min-w-0">
@@ -1990,7 +1992,7 @@
       </div>
 
       <div
-        v-if="account?.type === 'apikey'"
+        v-if="account?.type === 'apikey' && !isMiMoDesktop"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -3127,6 +3129,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import MiMoDesktopLogin from './MiMoDesktopLogin.vue'
 import { useAppStore } from '@/stores/app'
 
 import { adminAPI } from '@/api/admin'
@@ -3413,6 +3416,8 @@ const editApiProtocol = ref<CnApiProtocol>('adaptive')
 const editOpenCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(cloneOpenCodeGoProtocolRules())
 // 多协议供应商（国产厂商与走通用表单的供应商）的接入模式；OpenCode 用 editOpenCodeAccountMode。
 const editAccountMode = ref<string>('payg')
+const mimoLoginSessionID = ref('')
+const isMiMoDesktop = computed(() => props.account?.platform === 'mimo' && editAccountMode.value === 'desktop')
 const editOpenCodeAccountMode = ref<OpenCodeAccountMode>('go')
 // 国产厂商的接入模式只有 payg / coding。
 const cnPresetMode = computed<CnAccountMode>(() => (editAccountMode.value === 'coding' ? 'coding' : 'payg'))
@@ -3483,6 +3488,15 @@ watch(editApiProtocol, (protocol, previousProtocol) => {
 watch(editAccountMode, (mode, previousMode) => {
   if (!isCNApiKeyAccount.value || syncingForm.value) return
   if (props.account?.platform === 'opencode_go') return
+  if (props.account?.platform === 'mimo') {
+    editApiKey.value = ''
+    mimoLoginSessionID.value = ''
+    if (mode === 'desktop') upstreamBillingRateSyncEnabled.value = false
+    editApiProtocol.value = 'adaptive'
+    editAdaptiveBaseUrls.value = defaultCNAdaptiveBaseUrls('mimo', mode)
+    editBaseUrl.value = defaultCNBaseUrl('mimo', mode, 'adaptive')
+    return
+  }
   // 供应商没有的接入模式（如 deepseek 无 coding 套餐）防御性回退默认模式（UI 已隐藏该选项）。
   const effectiveMode = resolveProviderAccountMode(props.account!.platform, mode)
   if (effectiveMode !== mode) {
@@ -4591,6 +4605,7 @@ async function loadTLSProfiles() {
 watch(
   [() => props.show, () => props.account],
   ([show, newAccount], [wasShow, previousAccount]) => {
+    mimoLoginSessionID.value = ''
     if (!show || !newAccount) {
       return
     }
@@ -5196,8 +5211,8 @@ const handleSubmit = async () => {
     }
     updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
     if (props.account.type === 'apikey') {
-      updatePayload.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
-      updatePayload.upstream_billing_rate_sync_enabled = upstreamBillingRateSyncEnabled.value
+      updatePayload.upstream_billing_probe_enabled = !isMiMoDesktop.value && upstreamBillingAutoProbeEnabled.value
+      updatePayload.upstream_billing_rate_sync_enabled = !isMiMoDesktop.value && upstreamBillingRateSyncEnabled.value
       if (upstreamBillingRateSyncEnabled.value) {
         delete updatePayload.rate_multiplier
       }
@@ -5253,12 +5268,18 @@ const handleSubmit = async () => {
       // 用户填入新值则覆盖；留空时优先看 credentials_status.has_api_key；
       // 若后端尚未升级（无 credentials_status），回退读旧结构 currentCredentials.api_key。
       // 两者都无才报错。
-      const hasExistingApiKey =
-        props.account.credentials_status?.has_api_key ?? Boolean(currentCredentials.api_key)
-      if (editApiKey.value.trim()) {
-        newCredentials.api_key = editApiKey.value.trim()
+      const credentialKey = isMiMoDesktop.value ? 'mimo_session_cookie' : 'api_key'
+      const modeChanged = props.account.platform === 'mimo' && currentCredentials.account_mode !== editAccountMode.value
+      const hasExistingApiKey = !modeChanged &&
+        (props.account.credentials_status?.[`has_${credentialKey}`] ?? Boolean(currentCredentials[credentialKey]))
+      if (props.account.platform === 'mimo') newCredentials[isMiMoDesktop.value ? 'api_key' : 'mimo_session_cookie'] = ''
+      if (isMiMoDesktop.value && mimoLoginSessionID.value) {
+        newCredentials.mimo_login_session_id = mimoLoginSessionID.value
+        delete newCredentials.mimo_session_cookie
+      } else if (editApiKey.value.trim()) {
+        newCredentials[credentialKey] = editApiKey.value.trim()
       } else if (!hasExistingApiKey) {
-        appStore.showError(t('admin.accounts.apiKeyIsRequired'))
+        appStore.showError(t(props.account.platform === 'mimo' ? 'admin.accounts.mimo.required' : 'admin.accounts.apiKeyIsRequired'))
         return
       }
 

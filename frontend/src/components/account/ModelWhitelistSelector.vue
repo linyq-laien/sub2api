@@ -169,6 +169,7 @@ const props = defineProps<{
     type: string
     base_url?: string
     api_key: string
+    account_mode?: string
   }
 }>()
 

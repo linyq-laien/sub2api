@@ -228,6 +228,20 @@
             <PlatformIcon platform="minimax" size="sm" />
             MiniMax
           </button>
+          <button
+            type="button"
+            data-testid="platform-button-mimo"
+            @click="selectGenericMultiProtocolPlatform('mimo')"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'mimo'
+                ? 'bg-white text-orange-600 shadow-sm dark:bg-dark-600 dark:text-orange-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <PlatformIcon platform="mimo" size="sm" />
+            Xiaomi MiMo
+          </button>
         </div>
 
         <!-- 多模型聚合平台：OpenCode 与平台清单中登记的其他多协议供应商 -->
@@ -595,6 +609,8 @@
           </button>
         </div>
       </div>
+
+      <p v-if="form.platform === 'mimo'" class="input-hint" data-testid="mimo-mode-hint">{{ t(`admin.accounts.mimo.${accountMode}Desc`) }}</p>
 
       <!-- Account Mode Selection (Kimi / Zhipu / DeepSeek) -->
       <div v-if="isCNPlatform && !isOpenCodeGoPlatform">
@@ -1472,8 +1488,9 @@
           :platform="form.platform"
           :plan="currentOpenCodeOrCNMode()"
         />
-        <div>
-          <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+        <MiMoDesktopLogin v-if="isMiMoDesktop && show" v-model="mimoLoginSessionID" v-model:cookie="apiKeyValue" />
+        <div v-if="!isMiMoDesktop">
+          <label class="input-label">{{ isMiMoDesktop ? t('admin.accounts.mimo.cookie') : t('admin.accounts.apiKeyRequired') }}</label>
           <input
             v-model="apiKeyValue"
             type="password"
@@ -1484,8 +1501,8 @@
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
-        <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
-        <div
+        <!-- Desktop 会话不使用 API Key 账单探测。 -->
+        <div v-if="!isMiMoDesktop"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
@@ -3956,6 +3973,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import MiMoDesktopLogin from './MiMoDesktopLogin.vue'
 import { useAppStore } from '@/stores/app'
 
 import {
@@ -4127,7 +4145,10 @@ const apiKeyBaseUrlPlaceholder = computed(() => {
   }
 })
 
+const mimoLoginSessionID = ref('')
+const isMiMoDesktop = computed(() => form.platform === 'mimo' && accountMode.value === 'desktop')
 const apiKeyValuePlaceholder = computed(() => {
+  if (form.platform === 'mimo') return isMiMoDesktop.value ? 'serviceToken=...; userId=...' : accountMode.value === 'token_plan' ? 'tp-... / ttp-...' : 'sk-...'
   switch (form.platform) {
     case 'openai':
       return 'sk-proj-...'
@@ -4261,7 +4282,7 @@ const isGenericMultiProtocolPlatform = computed(
   () => isMultiProtocolPlatform.value && !isCNPlatform.value && !isOpenCodeGoPlatform.value
 )
 const extraMultiProtocolPlatforms = computed(() =>
-  listPlatforms().filter(spec => !!spec.multi_protocol && !isCNProviderPlatform(spec.id) && spec.id !== 'opencode_go')
+  listPlatforms().filter(spec => !!spec.multi_protocol && !isCNProviderPlatform(spec.id) && spec.id !== 'opencode_go' && spec.id !== 'mimo')
 )
 const genericAccountModes = computed(() => providerAccountModes(form.platform))
 // 按模型分流的供应商（OpenCode 等）：adaptive 账号携带 protocol_rules。
@@ -4397,6 +4418,16 @@ watch(openCodeAccountMode, (mode, previousMode) => {
   }
 })
 watch(accountMode, (mode, previousMode) => {
+  if (form.platform === 'mimo') {
+    apiKeyValue.value = ''
+    mimoLoginSessionID.value = ''
+    apiProtocol.value = 'adaptive'
+    resetAdaptiveBaseUrls('mimo', mode)
+    apiKeyBaseUrl.value = defaultCNBaseUrl('mimo', mode, 'adaptive')
+    allowedModels.value = []
+    modelMappings.value = []
+    return
+  }
   if (!isMultiProtocolPlatform.value || isOpenCodeGoPlatform.value) return
   if (routesByModel.value) {
     const previousRules = JSON.stringify(defaultProviderProtocolRules(form.platform, previousMode))
@@ -4437,7 +4468,7 @@ function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol
 }
 
 const syncPreviewCredentials = computed(() => {
-  if (!apiKeyValue.value) return undefined
+  if (!apiKeyValue.value || isMiMoDesktop.value) return undefined
   const baseUrl = isMultiProtocolPlatform.value && apiProtocol.value === 'adaptive'
     ? adaptiveBaseUrls.value.chat_completions.trim() || apiKeyBaseUrl.value.trim()
     : apiKeyBaseUrl.value.trim()
@@ -4451,6 +4482,7 @@ const syncPreviewCredentials = computed(() => {
     type: form.type,
     base_url: baseUrl || undefined,
     api_key: apiKeyValue.value,
+    ...(form.platform === 'mimo' ? { account_mode: accountMode.value } : {}),
     ...(modelMapping ? { model_mapping: modelMapping } : {})
   }
 })
@@ -5412,6 +5444,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 
 // Methods
 const resetForm = () => {
+  mimoLoginSessionID.value = ''
   step.value = 1
   form.name = ''
   form.notes = ''
@@ -5878,8 +5911,8 @@ const handleSubmit = async () => {
   }
 
   // For apikey type, create directly
-  if (!apiKeyValue.value.trim()) {
-    appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
+  if (!apiKeyValue.value.trim() && !(isMiMoDesktop.value && mimoLoginSessionID.value)) {
+    appStore.showError(t(form.platform === 'mimo' ? 'admin.accounts.mimo.required' : 'admin.accounts.pleaseEnterApiKey'))
     return
   }
 
@@ -5898,7 +5931,9 @@ const handleSubmit = async () => {
   // Build credentials with optional model mapping
   const credentials: Record<string, unknown> = {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
-    api_key: apiKeyValue.value.trim()
+    ...(isMiMoDesktop.value && mimoLoginSessionID.value
+      ? { mimo_login_session_id: mimoLoginSessionID.value }
+      : { [isMiMoDesktop.value ? 'mimo_session_cookie' : 'api_key']: apiKeyValue.value.trim() })
   }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
@@ -5993,7 +6028,7 @@ const handleSubmit = async () => {
     ...form,
     group_ids: form.group_ids,
     extra: withUpstreamRequestIdHeader(extra),
-    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
+    upstream_billing_probe_enabled: !isMiMoDesktop.value && upstreamBillingAutoProbeEnabled.value,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }
@@ -6826,7 +6861,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
 
         const credentials = antigravityOAuth.buildCredentials(tokenInfo, refreshTokens[i])
         applyAntigravityProjectID(credentials, antigravityProjectId.value, 'create')
-        
+
         // Generate account name with index for batch
         const accountName = refreshTokens.length > 1 ? `${form.name} #${i + 1}` : form.name
 

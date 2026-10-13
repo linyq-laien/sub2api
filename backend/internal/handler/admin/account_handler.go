@@ -49,6 +49,7 @@ func NewOAuthHandler(oauthService *service.OAuthService) *OAuthHandler {
 
 // AccountHandler handles admin account management
 type AccountHandler struct {
+	mimoLogin               *service.MiMoLoginService
 	claudeResetCredits      claudeResetReader
 	adminService            service.AdminService
 	oauthService            *service.OAuthService
@@ -102,6 +103,7 @@ func NewAccountHandler(
 	tokenCacheInvalidator service.TokenCacheInvalidator,
 ) *AccountHandler {
 	return &AccountHandler{
+		mimoLogin:               service.NewMiMoLoginService(),
 		adminService:            adminService,
 		oauthService:            oauthService,
 		openaiOAuthService:      openaiOAuthService,
@@ -1042,12 +1044,16 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	var createdAccount *service.Account
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		credentials, resolveErr := h.resolveMiMoLogin(c, req.Platform, req.Credentials)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 			Name:                  req.Name,
 			Notes:                 req.Notes,
 			Platform:              req.Platform,
 			Type:                  req.Type,
-			Credentials:           req.Credentials,
+			Credentials:           credentials,
 			Extra:                 req.Extra,
 			ProxyID:               req.ProxyID,
 			Concurrency:           req.Concurrency,
@@ -1063,6 +1069,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		if execErr != nil {
 			return nil, execErr
 		}
+		h.finishMiMoLogin(c, req.Credentials)
 		createdAccount = account
 		// Antigravity OAuth: 新账号直接设置隐私
 		h.adminService.ForceAntigravityPrivacy(ctx, account)
@@ -1174,6 +1181,19 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
+	originalCredentials := req.Credentials
+	if _, exists := req.Credentials[service.MiMoLoginSessionCredential]; exists {
+		current, getErr := h.adminService.GetAccount(c.Request.Context(), accountID)
+		if getErr != nil {
+			response.ErrorFrom(c, getErr)
+			return
+		}
+		req.Credentials, err = h.resolveMiMoLogin(c, current.Platform, req.Credentials)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
 		Name:                  req.Name,
 		Notes:                 req.Notes,
@@ -1208,6 +1228,8 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+
+	h.finishMiMoLogin(c, originalCredentials)
 
 	// OpenAI APIKey: credentials 修改后重新探测上游能力（base_url/api_key 可能变更）。
 	// 异步执行，探测失败不影响账号更新响应。
@@ -2850,6 +2872,42 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
+	// MiMo membership uses its own catalog; API products use /models. Keep a
+	// usable MiMo fallback if discovery fails, rather than offering Claude models.
+	if account.Platform == service.PlatformMiMo {
+		ids := []string{service.LookupProviderProfile(service.PlatformMiMo).DefaultTestModel}
+		if h.accountTestService != nil {
+			if live, fetchErr := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), account); fetchErr == nil {
+				ids = live
+			}
+		}
+		mapping := account.GetModelMapping()
+		if len(mapping) > 0 {
+			mapped := make(map[string]bool)
+			for _, id := range ids {
+				if account.IsModelSupported(id) {
+					mapped[id] = true
+				}
+			}
+			for id := range mapping {
+				if !strings.Contains(id, "*") {
+					mapped[id] = true
+				}
+			}
+			ids = make([]string, 0, len(mapped))
+			for id := range mapped {
+				ids = append(ids, id)
+			}
+		}
+		sort.Strings(ids)
+		models := make([]openai.Model, 0, len(ids))
+		for _, id := range ids {
+			models = append(models, openai.Model{ID: id, Object: "model", Type: "model", DisplayName: id})
+		}
+		response.Success(c, models)
+		return
+	}
+
 	// Handle Gemini accounts
 	if account.IsGemini() {
 		// Consumer Google One OAuth still uses the legacy Gemini CLI / Code
@@ -3091,6 +3149,7 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		Type         string            `json:"type" binding:"required"`
 		BaseURL      string            `json:"base_url"`
 		APIKey       string            `json:"api_key" binding:"required"`
+		AccountMode  string            `json:"account_mode"`
 		ModelMapping map[string]string `json:"model_mapping"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -3107,6 +3166,7 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		Type:     req.Type,
 		Credentials: map[string]any{
 			"api_key":       req.APIKey,
+			"account_mode":  req.AccountMode,
 			"base_url":      req.BaseURL,
 			"model_mapping": modelMapping,
 		},

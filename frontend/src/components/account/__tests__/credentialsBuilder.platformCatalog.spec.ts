@@ -124,7 +124,7 @@ const legacyModes: Record<string, string[]> = {
 }
 
 const probePlatforms = [
-  ...BUILTIN_PLATFORM_CATALOG.platforms.map(spec => spec.id),
+  ...BUILTIN_PLATFORM_CATALOG.platforms.filter(spec => spec.id !== 'mimo').map(spec => spec.id),
   'composite',
   '',
   'bogus'

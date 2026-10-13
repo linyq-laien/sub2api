@@ -156,8 +156,36 @@ class ReleaseMatrixTest(unittest.TestCase):
         self.assertNotIn('--push', log)
         self.assertNotIn('imagetools', log)
         self.assertNotIn('skip/sub2api', log)
-        self.assertIn('ghcr.io/exampleowner/sub2api', log)
+        self.assertIn('local/sub2api-mimo', log)
 
+
+    def test_publication_rejects_missing_configuration_and_upstream_repositories(self):
+        fake_bin = Path('bin')
+        fake_bin.mkdir()
+        docker = fake_bin / 'docker'
+        docker.write_text('#!/bin/sh\ntouch "$DOCKER_LOG"\n')
+        docker.chmod(0o755)
+        base_env = {**os.environ, 'PATH': str(fake_bin.resolve()) + os.pathsep + os.environ['PATH'],
+                    'DOCKER_LOG': str(Path('docker.log').resolve()), 'RUNNER_TEMP': self.temp.name,
+                    'RELEASE_VERSION': '9.8.7', 'RELEASE_SHA': 'a' * 40,
+                    'GITHUB_REPOSITORY': 'ExampleOwner/sub2api', 'DRY_RUN': 'false'}
+        for key in ('IMAGE_REPOSITORY', 'IMAGE_PUBLISH_ENABLED'):
+            base_env.pop(key, None)
+        cases = [
+            {},
+            {'IMAGE_REPOSITORY': 'registry.example.com/team/sub2api'},
+            {'IMAGE_PUBLISH_ENABLED': 'true'},
+        ]
+        for repository in ('weishaw/sub2api', 'docker.io/weishaw/sub2api',
+                           'ghcr.io/wei-shaw/sub2api', 'bayma888/sub2api',
+                           'ghcr.io/bayma888/sub2api'):
+            cases.append({'IMAGE_PUBLISH_ENABLED': 'true', 'IMAGE_REPOSITORY': repository})
+        for configuration in cases:
+            with self.subTest(configuration=configuration):
+                result = subprocess.run(['bash', str(ROOT / '.github/release-tools/release-images.sh')],
+                                        env={**base_env, **configuration}, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(Path('docker.log').exists())
 
     def test_published_full_and_simple_image_tags(self):
         fake_bin = Path('bin')
@@ -171,7 +199,7 @@ class ReleaseMatrixTest(unittest.TestCase):
                 env = {**os.environ, 'PATH': str(fake_bin.resolve()) + os.pathsep + os.environ['PATH'],
                        'DOCKER_LOG': str(log_path), 'RUNNER_TEMP': self.temp.name,
                        'RELEASE_VERSION': '9.8.7', 'RELEASE_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'ExampleOwner/sub2api',
-                       'DRY_RUN': 'false', 'SIMPLE_RELEASE': str(simple).lower(), 'DOCKERHUB_USERNAME': 'fixturehub'}
+                       'IMAGE_PUBLISH_ENABLED': 'true', 'IMAGE_REPOSITORY': 'registry.example.com/team/sub2api', 'DRY_RUN': 'false', 'SIMPLE_RELEASE': str(simple).lower(), 'DOCKERHUB_USERNAME': 'fixturehub'}
                 subprocess.run(['bash', str(ROOT / '.github/release-tools/release-images.sh')], env=env, check=True)
                 log = log_path.read_text()
                 self.assertIn('--push', log)
@@ -179,11 +207,11 @@ class ReleaseMatrixTest(unittest.TestCase):
                 if simple:
                     self.assertNotIn('fixturehub', log)
                     self.assertNotIn('imagetools', log)
-                    self.assertIn('ghcr.io/exampleowner/sub2api:latest', log)
+                    self.assertIn('registry.example.com/team/sub2api:latest', log)
                 else:
-                    self.assertEqual(log.count('imagetools create'), 2)
-                    self.assertIn('fixturehub/sub2api:9.8', log)
-                    self.assertIn('ghcr.io/exampleowner/sub2api:9', log)
+                    self.assertEqual(log.count('imagetools create'), 1)
+                    self.assertIn('registry.example.com/team/sub2api:9.8', log)
+                    self.assertIn('registry.example.com/team/sub2api:9', log)
 
 
 

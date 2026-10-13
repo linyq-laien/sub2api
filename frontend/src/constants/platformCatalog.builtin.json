@@ -143,6 +143,38 @@
       }
     },
     {
+      "id": "mimo",
+      "display_name": "Xiaomi MiMo",
+      "gateway": "openai",
+      "cn_provider": false,
+      "multi_protocol": {
+        "default_mode": "payg",
+        "routing": "by_inbound",
+        "modes": [
+          {
+            "mode": "payg",
+            "base_urls": {
+              "anthropic": "https://api.xiaomimimo.com/anthropic",
+              "chat_completions": "https://api.xiaomimimo.com/v1"
+            }
+          },
+          {
+            "mode": "desktop",
+            "base_urls": {
+              "chat_completions": "https://mimo-server-cn.xiaomimimo.com/api/route/chat/completions"
+            }
+          },
+          {
+            "mode": "token_plan",
+            "base_urls": {
+              "anthropic": "https://token-plan-cn.xiaomimimo.com/anthropic",
+              "chat_completions": "https://token-plan-cn.xiaomimimo.com/v1"
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "opencode_go",
       "display_name": "OpenCode",
       "gateway": "openai",
@@ -290,6 +322,7 @@
     "zhipu",
     "deepseek",
     "minimax",
+    "mimo",
     "opencode_go",
     "typesafe",
     "command_code",

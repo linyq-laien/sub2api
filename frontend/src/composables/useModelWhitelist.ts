@@ -209,6 +209,9 @@ const doubaoModels = [
   'doubao-1.5-pro-vision-32k', 'doubao-1.5-thinking-pro'
 ]
 
+// Xiaomi MiMo
+const mimoModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro']
+
 // MiniMax
 const minimaxModels = [
   'MiniMax-M3',
@@ -270,6 +273,7 @@ const allModelsList: string[] = [
   ...moonshotModels,
   ...doubaoModels,
   ...minimaxModels,
+  ...mimoModels,
   ...baiduModels,
   ...sparkModels,
   ...hunyuanModels,
@@ -479,6 +483,7 @@ export function getModelsByPlatform(platform: string): string[] {
     ]
     case 'typesafe': return ['jev-latest']
     case 'doubao': return doubaoModels
+    case 'mimo': return mimoModels
     case 'minimax': return minimaxModels
     case 'baidu': return baiduModels
     case 'spark': return sparkModels

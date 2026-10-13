@@ -1,0 +1,56 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+const { post, get, remove } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn(), remove: vi.fn() }))
+vi.mock('@/api/client', () => ({ apiClient: { post, get, delete: remove } }))
+vi.mock('qrcode', () => ({ default: { toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,test') } }))
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+import MiMoDesktopLogin from '../MiMoDesktopLogin.vue'
+
+describe('MiMoDesktopLogin', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    remove.mockResolvedValue({})
+    post.mockResolvedValue({ data: { session_id: 'opaque-session', status: 'pending', login_url: 'https://ak.account.xiaomi.com/longPolling/login?ticket=test', expires_at: new Date(Date.now() + 300000).toISOString() } })
+  })
+  afterEach(() => vi.useRealTimers())
+  it('links through a server-side handle, expires it, and never asks for a cookie', async () => {
+    get.mockResolvedValue({ data: { session_id: 'opaque-session', status: 'authenticated' } })
+    const wrapper = mount(MiMoDesktopLogin, { props: { modelValue: '', cookie: '' } })
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('a').attributes('href')).toContain('account.xiaomi.com')
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['opaque-session'])
+    expect(wrapper.emitted('update:cookie')?.at(-1)).toEqual([''])
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    await vi.advanceTimersByTimeAsync(300000)
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([''])
+    expect(wrapper.text()).toContain('loginExpired')
+    wrapper.unmount()
+  })
+  it('cancels pending login on unmount and ignores late completion', async () => {
+    let finish!: (result: unknown) => void
+    get.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const emitted = vi.fn()
+    const wrapper = mount(MiMoDesktopLogin, { props: { modelValue: '', cookie: '', 'onUpdate:modelValue': emitted } })
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1500)
+    wrapper.unmount()
+    finish({ data: { session_id: 'opaque-session', status: 'authenticated' } })
+    await flushPromises()
+    expect(remove).toHaveBeenCalledWith('/admin/accounts/mimo/desktop/login/opaque-session')
+    expect(emitted).not.toHaveBeenCalledWith('opaque-session')
+  })
+  it('keeps manual import isolated from pending authorization', async () => {
+    const wrapper = mount(MiMoDesktopLogin, { props: { modelValue: '', cookie: '' } })
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    await wrapper.get('input').setValue('serviceToken=manual')
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([''])
+    expect(wrapper.emitted('update:cookie')?.at(-1)).toEqual(['serviceToken=manual'])
+    expect(remove).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+})

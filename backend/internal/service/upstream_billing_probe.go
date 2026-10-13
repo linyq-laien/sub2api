@@ -1013,7 +1013,7 @@ func IsUpstreamBillingProbeIdentity(platform, accountType string) bool {
 }
 
 func isUpstreamBillingProbeAccount(account *Account) bool {
-	return account != nil && IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
+	return account != nil && !account.IsMiMoDesktop() && IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
 }
 
 // upstreamBillingProbeOfficialAPIDomains lists the root domains of official
@@ -1033,6 +1033,7 @@ func isUpstreamBillingProbeAccount(account *Account) bool {
 // serve the same role: official APIs that can never host /v1/sub2api/billing,
 // so their accounts short-circuit to "unsupported" without a request.
 var upstreamBillingProbeOfficialAPIDomains = []string{
+	"xiaomimimo.com",
 	"anthropic.com",
 	"googleapis.com",
 	"x.ai",

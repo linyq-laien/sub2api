@@ -142,6 +142,7 @@ docs/*
 !docs/PLUGIN_DEVELOPMENT.md
 !docs/channel-monitor-v2-safe-defaults.md
 !docs/codex-credits.md
+!docs/mimo-integration.md
 !docs/legal/
 !docs/legal/*.md
 !docs/screenshots/
@@ -161,3 +162,6 @@ issues/
 .vite/
 # 本地闭源插件开发目录及构建产物不进入 Sub2API 仓库
 /plugins/
+
+# Isolated local MiMo debug runtime (database, cookies and binaries).
+.local/

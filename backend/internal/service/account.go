@@ -1413,6 +1413,9 @@ func (a *Account) GetAccountMode() string {
 		return ""
 	}
 	mode := strings.TrimSpace(a.GetCredential("account_mode"))
+	if a.Platform == PlatformMiMo {
+		return mode
+	}
 	if mode == AccountModePayG || mode == AccountModeCoding {
 		return mode
 	}

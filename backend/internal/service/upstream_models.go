@@ -771,6 +771,12 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 		}
 	}
 
+	if account.IsMiMoDesktop() {
+		body, err = normalizeMiMoDesktopModels(body)
+		if err != nil {
+			return nil, nil, newUpstreamModelSyncUpstreamError("Invalid MiMo Desktop model catalog", err)
+		}
+	}
 	extractModels := extractUpstreamModelIDs
 	if account.IsGrok() {
 		extractModels = extractGrokUpstreamModelIDs
@@ -787,6 +793,25 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 }
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+	if err := ValidateMiMoAccount(account); err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid MiMo credentials", err)
+	}
+	if account.IsMiMoDesktop() {
+		base, err := s.validateUpstreamBaseURL(account.GetOpenAIBaseURL())
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasSuffix(base, "/route/chat/completions") {
+			return nil, newUpstreamModelSyncConfigError("Desktop model sync requires a /route/chat/completions endpoint", nil)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(base, "/route/chat/completions")+"/model/list", nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/json")
+		account.applyMiMoAuth(req.Header)
+		return req, nil
+	}
 	switch {
 	case account.Platform == PlatformAntigravity:
 		return s.buildAntigravityAPIKeyModelsRequest(ctx, account)
