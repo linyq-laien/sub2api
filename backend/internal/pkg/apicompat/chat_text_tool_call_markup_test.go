@@ -22,10 +22,10 @@ func pushInChunks(f *chatToolCallMarkupFilter, text string, size int) string {
 		if n > len(text) {
 			n = len(text)
 		}
-		out.WriteString(f.Push(text[:n]))
+		_, _ = out.WriteString(f.Push(text[:n]))
 		text = text[n:]
 	}
-	out.WriteString(f.Flush())
+	_, _ = out.WriteString(f.Flush())
 	return out.String()
 }
 
@@ -89,7 +89,7 @@ func TestChatCompletionsChunkToResponsesEvents_StripsEchoedToolCallMarkup(t *tes
 	var call1 *ResponsesOutput
 	for _, ev := range events {
 		if ev.Type == "response.output_text.delta" {
-			streamed.WriteString(ev.Delta)
+			_, _ = streamed.WriteString(ev.Delta)
 		}
 		if ev.Type == "response.output_item.done" && ev.Item != nil && ev.Item.Type == "custom_tool_call" {
 			call1 = ev.Item
