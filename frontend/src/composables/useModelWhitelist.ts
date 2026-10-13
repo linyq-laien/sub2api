@@ -210,7 +210,7 @@ const doubaoModels = [
 ]
 
 // Xiaomi MiMo
-const mimoModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro']
+const mimoModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed']
 
 // MiniMax
 const minimaxModels = [

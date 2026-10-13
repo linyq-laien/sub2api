@@ -36,6 +36,10 @@ describe('useModelWhitelist', () => {
     }
   })
 
+  it('mimo 模型列表包含 Desktop 文本模型（含 UltraSpeed）', () => {
+    expect(getModelsByPlatform('mimo')).toEqual(['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed'])
+  })
+
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
     const models = getModelsByPlatform('openai')
 
