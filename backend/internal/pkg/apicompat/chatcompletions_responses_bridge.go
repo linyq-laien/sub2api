@@ -176,14 +176,43 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
 
 // CustomToolNames 收集 Responses 请求中 custom/freeform 工具的名字。chat 桥回程时
 // 需要据此把模型对这些工具的调用还原为 custom_tool_call 项（codex 只按该类型路由）。
+// namespace 下的 custom 子工具（codex code mode 把 exec 放在 functions 命名空间里）
+// 同样计入，按裸名登记，见 namespaceCustomChildren。
 func CustomToolNames(tools []ResponsesTool) map[string]bool {
 	var out map[string]bool
+	add := func(name string) {
+		if out == nil {
+			out = make(map[string]bool)
+		}
+		out[name] = true
+	}
 	for _, tool := range tools {
 		if tool.Type == "custom" && tool.Name != "" {
-			if out == nil {
-				out = make(map[string]bool)
-			}
-			out[tool.Name] = true
+			add(tool.Name)
+		}
+		for _, child := range namespaceCustomChildren(tool) {
+			add(child.Name)
+		}
+	}
+	return out
+}
+
+// namespaceCustomChildren 返回 namespace 工具下的 custom/freeform 子工具。codex
+// code mode 以 namespace 形式声明工具时，exec 是 functions 命名空间下的 custom
+// 子工具，回程按无 namespace 的 custom_tool_call 路由。chat 上游没有 namespace
+// 概念，这类子工具按裸名降级为 function 工具声明（与顶层 custom 工具一致）。
+func namespaceCustomChildren(tool ResponsesTool) []ResponsesTool {
+	if tool.Type != "namespace" || tool.Name == "" {
+		return nil
+	}
+	children := tool.Tools
+	if len(children) == 0 {
+		children = tool.Children
+	}
+	var out []ResponsesTool
+	for _, child := range children {
+		if child.Type == "custom" && child.Name != "" {
+			out = append(out, child)
 		}
 	}
 	return out
@@ -1107,6 +1136,15 @@ func responsesToolsToChatTools(tools []ResponsesTool) ([]ChatTool, error) {
 			topLevel[tool.Name] = true
 		}
 	}
+	// namespace 下的 custom 子工具按裸名声明，与顶层工具共用同一名字空间。
+	for _, tool := range tools {
+		for _, child := range namespaceCustomChildren(tool) {
+			if topLevel[child.Name] {
+				return nil, fmt.Errorf("namespace custom tool %q/%q conflicts with another tool of the same name; this upstream cannot disambiguate them, rename one of the tools", tool.Name, child.Name)
+			}
+			topLevel[child.Name] = true
+		}
+	}
 	flatOwner := make(map[string]NamespacedToolName)
 	toolSearchDeclared := false
 	out := make([]ChatTool, 0, len(tools))
@@ -1199,6 +1237,19 @@ func namespaceChildrenToChatTools(tool ResponsesTool, topLevel map[string]bool, 
 	}
 	var out []ChatTool
 	for _, child := range children {
+		if child.Type == "custom" && child.Name != "" {
+			// custom 子工具按裸名降级为 function 工具（见 namespaceCustomChildren），
+			// 回程由 CustomToolNames 还原为 custom_tool_call。
+			out = append(out, ChatTool{
+				Type: "function",
+				Function: &ChatFunction{
+					Name:        child.Name,
+					Description: child.Description,
+					Parameters:  json.RawMessage(customToolInputSchema),
+				},
+			})
+			continue
+		}
 		if child.Type != "function" || child.Name == "" {
 			continue
 		}

@@ -542,17 +542,19 @@ func TestResponsesToChatCompletionsRequest_NamespaceToolFlattensChildren(t *test
 			Name: "gmail",
 			Tools: []ResponsesTool{
 				{Type: "function", Name: "send", Description: "Send mail", Parameters: json.RawMessage(`{"type":"object","properties":{}}`)},
-				{Type: "custom", Name: "ignored_child"},
+				{Type: "custom", Name: "compose_raw"},
 			},
 		}},
 	}
 
 	out, err := ResponsesToChatCompletionsRequest(req)
 	require.NoError(t, err)
-	require.Len(t, out.Tools, 1, "namespace 子工具中仅 function 类型被摊平")
+	require.Len(t, out.Tools, 2, "function 子工具摊平，custom 子工具按裸名降级")
 
 	assert.Equal(t, "gmail__send", out.Tools[0].Function.Name)
 	assert.Equal(t, "Send mail", out.Tools[0].Function.Description)
+	assert.Equal(t, "compose_raw", out.Tools[1].Function.Name)
+	assert.JSONEq(t, customToolInputSchema, string(out.Tools[1].Function.Parameters))
 }
 
 func TestResponsesToolsParsing_StringToolBecomesCustom(t *testing.T) {
@@ -1163,4 +1165,85 @@ func TestChatCompletionsChunkToResponsesEvents_FunctionToolStreamUnaffected(t *t
 		}
 	}
 	assert.True(t, sawArgsDelta, "function 工具应保持原有参数增量事件")
+}
+
+// codex code mode（Responses Lite）不声明顶层工具，exec 作为 custom 子工具挂在
+// additional_tools 的 functions 命名空间下。此前 namespaceChildrenToChatTools 只
+// 保留 function 子工具，exec 被丢弃且未登记为 custom 工具：上游模型照常调用 exec
+// 并回传裸 JavaScript，桥按普通 function 校验 JSON 失败，整条流以 response.failed
+// 结束（MiMo 等 chat 上游必现）。
+func TestResponsesChatBridge_NamespaceCustomChildExecRoundTrip(t *testing.T) {
+	req := &ResponsesRequest{
+		Model: "mimo-v2.6-flash",
+		Input: json.RawMessage(`[{"type":"additional_tools","tools":[{"type":"namespace","name":"functions","tools":[
+			{"type":"custom","name":"exec","description":"Run JavaScript code"},
+			{"type":"function","name":"wait","parameters":{"type":"object"}}
+		]}]},{"type":"message","role":"user","content":"list files"}]`),
+	}
+
+	tools, err := EffectiveResponsesTools(req)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]bool{"exec": true}, CustomToolNames(tools))
+
+	chatReq, err := ResponsesToChatCompletionsRequest(req)
+	require.NoError(t, err)
+	declared := map[string]string{}
+	for _, tool := range chatReq.Tools {
+		declared[tool.Function.Name] = string(tool.Function.Parameters)
+	}
+	require.Contains(t, declared, "exec", "namespace custom 子工具 exec 必须声明给上游")
+	assert.JSONEq(t, customToolInputSchema, declared["exec"])
+	assert.Contains(t, declared, "functions__wait")
+
+	// MiMo 实际回传：多行 JavaScript 未包进 {"input": ...}，分片到达。
+	raw := "const r = await tools.exec_command({\n  cmd: \"pwd && ls -la\"\n});\ntext(r.output);"
+	state := NewChatCompletionsToResponsesStreamState("gpt-6-luna")
+	state.CustomTools = CustomToolNames(tools)
+	state.FunctionTools = FunctionToolNames(tools)
+	state.NamespaceTools = NamespaceToolNames(tools)
+	idx := 0
+	var events []ResponsesStreamEvent
+	for i, part := range []string{"", raw[:17], raw[17:]} {
+		call := ChatToolCall{Index: &idx}
+		if i == 0 {
+			call.ID = "call_1"
+			call.Function.Name = "exec"
+		}
+		call.Function.Arguments = part
+		events = append(events, ChatCompletionsChunkToResponsesEvents(&ChatCompletionsChunk{
+			Choices: []ChatChunkChoice{{Delta: ChatDelta{ToolCalls: []ChatToolCall{call}}}},
+		}, state)...)
+	}
+	require.NoError(t, state.ValidateToolCallArguments())
+	events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+
+	var itemDone *ResponsesOutput
+	for i := range events {
+		switch events[i].Type {
+		case "response.function_call_arguments.delta", "response.function_call_arguments.done":
+			t.Fatalf("exec 应按 custom_tool_call 下发，不应产出 %s", events[i].Type)
+		case "response.output_item.done":
+			if events[i].Item != nil && events[i].Item.Type == "custom_tool_call" {
+				itemDone = events[i].Item
+			}
+		}
+	}
+	require.NotNil(t, itemDone, "缺少 exec 的 custom_tool_call")
+	assert.Equal(t, "exec", itemDone.Name)
+	assert.Empty(t, itemDone.Namespace)
+	assert.Equal(t, raw, itemDone.Input)
+}
+
+func TestResponsesToChatCompletionsRequest_NamespaceCustomChildConflictsWithTopLevel(t *testing.T) {
+	req := &ResponsesRequest{
+		Model: "m",
+		Input: json.RawMessage(`"hi"`),
+		Tools: []ResponsesTool{
+			{Type: "function", Name: "exec", Parameters: json.RawMessage(`{"type":"object"}`)},
+			{Type: "namespace", Name: "functions", Tools: []ResponsesTool{{Type: "custom", Name: "exec"}}},
+		},
+	}
+	_, err := ResponsesToChatCompletionsRequest(req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "conflicts")
 }
