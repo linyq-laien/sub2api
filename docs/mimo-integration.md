@@ -42,7 +42,7 @@
 
 ## 镜像发布
 
-发布目标为 `ghcr.io/linyq-laien/sub2api`，首版标签为 `0.2.15-mimo.1`，当前版本 `0.2.15-mimo.2`（新增 Desktop 用量窗口、额度耗尽 403 冷却、UltraSpeed 模型预设）。部署用 Compose 和 Apple Container 默认使用当前固定版本；开发用 `docker-compose.dev.yml` 仍构建本地镜像。首次推送会自动创建 GHCR package，默认私有；部署主机需使用具有 `read:packages` 权限的凭证登录 GHCR。
+发布目标为 `ghcr.io/linyq-laien/sub2api`，首版标签为 `0.2.15-mimo.1`，当前版本 `0.2.15-mimo.3`（mimo.2 新增 Desktop 用量窗口、额度耗尽 403 冷却、UltraSpeed 模型预设；mimo.3 创建 API Key 时直接选择分组，不再选择厂商）。部署用 Compose 和 Apple Container 默认使用当前固定版本；开发用 `docker-compose.dev.yml` 仍构建本地镜像。首次推送会自动创建 GHCR package，默认私有；部署主机需使用具有 `read:packages` 权限的凭证登录 GHCR。
 
 发布脚本 `.github/release-tools/release-images.sh` 默认 `DRY_RUN=true`，输出本地 OCI 产物。真实发布必须同时显式设置：
 
