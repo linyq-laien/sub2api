@@ -20,6 +20,8 @@
 - 保留折叠的「手动导入 Cookie（备用）」入口，接受业务域名有效的 Cookie 请求头，例如 `serviceToken=…; userId=…`，不能填小米密码、`sk-` 或 `tp-`。后端只保留 Desktop 业务 Cookie，不保存小米账号 `passToken`。转发使用 Cookie 鉴权，不发送 Bearer API Key。
 - Desktop 会话存放在专用敏感字段，管理接口不返回明文；编辑时不重新授权且不填备用凭证，可保留已有会话。
 - Desktop 模型同步使用 `/api/model/list`，只导入文本模型；连接测试优先使用实际模型目录。它不启用 API Key 账单探测，也不将会员额度伪装成开放平台余额。
+- Desktop 用量窗口：使用业务会话调用 `GET /api/user/usage`（与 Desktop 客户端「用量」页同源），响应 `data.percent` 是**剩余**百分比，`data.resetAt` 是周窗口重置时间（秒级时间戳）。后端换算为已用百分比写入 `mimo_weekly_used_percent` / `mimo_weekly_reset_at` 快照，账号列表「用量窗口」展示周额度条；周期任务与 Kimi/智谱 Coding Plan 同批刷新。Token Plan 与按量付费不显示此窗口。
+- Desktop 会员额度耗尽时上游返回 403 `subscription_quota_exhausted`（`biz_code=30011`）。该错误按配额耗尽处理：有快照时限流到周窗口重置点，无快照时临时停调 10 分钟，不计入 403 连续失败禁用计数，账号不会因此被永久标记错误。
 - 没有绑定模型映射时，默认测试模型为 `mimo-v2.6-flash`。可同步上游目录以获取当前可用模型。
 
 ## 本地验证实例

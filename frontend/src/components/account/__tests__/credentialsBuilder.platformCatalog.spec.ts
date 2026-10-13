@@ -208,6 +208,14 @@ describe('credentialsBuilder built-in Command Code provider', () => {
     expect(providerHasModelCatalog('opencode_go')).toBe(false)
   })
 
+  it('shows the weekly usage window only for MiMo Desktop membership accounts', () => {
+    const account = (mode: string) => ({ platform: 'mimo', type: 'apikey', credentials: { account_mode: mode } })
+    expect(cnQuotaCellVisible(account('desktop'))).toBe(true)
+    expect(cnQuotaCellVisible(account('token_plan'))).toBe(false)
+    expect(cnQuotaCellVisible(account('payg'))).toBe(false)
+    expect(cnBalanceCellVisible(account('desktop'))).toBe(false)
+  })
+
   it('shows both the quota windows and the credit balance for official-host API keys only', () => {
     const account = (credentials: Record<string, unknown>, type = 'apikey') => ({ platform: 'command_code', type, credentials })
     expect(cnQuotaCellVisible(account({ account_mode: 'payg' }))).toBe(true)

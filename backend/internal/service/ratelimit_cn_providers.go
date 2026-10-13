@@ -192,6 +192,7 @@ func cnProviderQuotaSnapshotReset(account *Account, now time.Time) *time.Time {
 			return nil
 		}
 	case account.IsCNProvider() && account.IsCodingPlan():
+	case account.IsMiMoDesktop():
 	default:
 		return nil
 	}

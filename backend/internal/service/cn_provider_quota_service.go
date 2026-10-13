@@ -141,6 +141,9 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 	if provider == PlatformCline {
 		return s.queryClineUsage(ctx, account)
 	}
+	if provider == PlatformMiMo {
+		return s.queryMiMoDesktopUsage(ctx, account)
+	}
 	if provider != PlatformKimi && provider != PlatformZhipu && provider != PlatformMiniMax && provider != PlatformOpenCodeGo {
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "account is not a kimi/zhipu/minimax coding plan or opencode go account")
 	}
@@ -314,6 +317,12 @@ func validateCodingPlanAccount(account *Account) error {
 	}
 	if account.IsOpenCodeGo() {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "opencode zen accounts have no subscription quota window")
+	}
+	if account.Platform == PlatformMiMo {
+		if !account.IsMiMoDesktop() {
+			return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "only MiMo Desktop membership accounts expose a usage window")
+		}
+		return nil
 	}
 	if !account.IsCNProvider() {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_INVALID_PLATFORM", "account is not a CN provider account")

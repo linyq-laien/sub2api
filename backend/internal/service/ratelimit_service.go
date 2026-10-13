@@ -1019,7 +1019,7 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	// （error.type=access_terminated_error），这是窗口到期后自动恢复的限流
 	// 信号而非封禁：按 429 口径冷却到真实窗口重置点，避免落入下方通用 403
 	// 升级计数后被永久 SetError。
-	if isCNProviderQuotaExhausted403(account, responseBody, upstreamMsg) {
+	if isCNProviderQuotaExhausted403(account, responseBody, upstreamMsg) || isMiMoQuotaExhausted403(account, responseBody) {
 		s.handleCNProviderQuotaExhausted403(ctx, account, upstreamMsg)
 		return true
 	}

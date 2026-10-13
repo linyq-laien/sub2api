@@ -1573,6 +1573,9 @@ func (a *Account) GetCodingPlanProvider() string {
 		}
 		return ""
 	}
+	if a.IsMiMoDesktop() {
+		return PlatformMiMo
+	}
 	if a.GetAccountMode() != AccountModeCoding {
 		return ""
 	}

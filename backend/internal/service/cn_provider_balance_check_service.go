@@ -124,13 +124,13 @@ func (s *CNProviderBalanceCheckService) runOnce() {
 			}
 			// coding 账号：探测滚动窗口并落快照（不要求 Schedulable——已被
 			// 阈值停调的账号也需要新鲜快照决定是否续停）。
-			if account.IsCodingPlan() {
+			if account.IsCodingPlan() || account.IsMiMoDesktop() {
 				quotaTargets = append(quotaTargets, quotaTarget{id: account.ID, platform: account.Platform})
 				continue
 			}
-			// payg 余额探测仅 kimi/deepseek（智谱 / MiniMax 无公开余额端点，
+			// payg 余额探测仅 kimi/deepseek（智谱 / MiniMax / MiMo 无公开余额端点，
 			// payg 账号依赖响应式 402/429 处理）。
-			if platform != PlatformZhipu && platform != PlatformMiniMax && account.Schedulable {
+			if platform != PlatformZhipu && platform != PlatformMiniMax && platform != PlatformMiMo && account.Schedulable {
 				paygTargets = append(paygTargets, account)
 			}
 		}
@@ -143,9 +143,9 @@ func (s *CNProviderBalanceCheckService) runOnce() {
 		}
 		collect(platform, accounts)
 	}
-	// 智谱 / MiniMax 无余额端点，仅进额度探测。
+	// 智谱 / MiniMax / MiMo Desktop 无余额端点，仅进额度探测。
 	if s.quotaService != nil {
-		for _, platform := range []string{PlatformZhipu, PlatformMiniMax} {
+		for _, platform := range []string{PlatformZhipu, PlatformMiniMax, PlatformMiMo} {
 			accounts, err := s.accountRepo.ListByPlatform(context.Background(), platform)
 			if err != nil {
 				log.Printf("[CNBalance] list %s accounts failed: %v", platform, err)

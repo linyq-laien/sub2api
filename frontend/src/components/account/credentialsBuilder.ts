@@ -599,6 +599,8 @@ export function cnQuotaCellVisible(account: CNUsageCellAccount): boolean {
   if (platform === 'opencode_go') return mode !== 'zen'
   // Command Code、Cline：订阅窗口与积分由一次探测同时刷新。
   if (OFFICIAL_ACCOUNT_API_PLATFORMS.includes(platform)) return officialAccountAPISupported(account, mode)
+  // MiMo Desktop 会员：周额度窗口经业务会话查询；Token Plan / 按量付费无此窗口。
+  if (platform === 'mimo') return mode === 'desktop'
   return (platform === 'kimi' || platform === 'zhipu' || platform === 'minimax') && mode === 'coding'
 }
 
