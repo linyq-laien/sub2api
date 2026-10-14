@@ -69,9 +69,14 @@ function quota(over: Partial<PlatformQuotaItem> & { platform: string }): Platfor
   } as PlatformQuotaItem
 }
 
-function mountStats(stats: UserStatsType, platformQuotas: PlatformQuotaItem[] | null = null, isSimple = false) {
+function mountStats(
+  stats: UserStatsType,
+  platformQuotas: PlatformQuotaItem[] | null = null,
+  isSimple = false,
+  showPlatformBreakdown = true
+) {
   return mount(UserDashboardStats, {
-    props: { stats, balance: 0, isSimple, platformQuotas },
+    props: { stats, balance: 0, isSimple, platformQuotas, showPlatformBreakdown },
     global: { stubs: { Icon: true } },
   })
 }
@@ -158,5 +163,11 @@ describe('UserDashboardStats 按平台拆分', () => {
   it('简易模式不渲染整块', () => {
     const w = mountStats(makeStats({ by_platform: [usage('openai', 1)] }), null, true)
     expect(w.html()).not.toContain('dashboard.platformBreakdown')
+  })
+
+  it('默认隐藏：未开启 showPlatformBreakdown 时即使有用量也不渲染整块', () => {
+    const w = mountStats(makeStats({ total_actual_cost: 1, today_actual_cost: 1, by_platform: [usage('openai', 1)] }), null, false, false)
+    expect(w.html()).not.toContain('dashboard.platformBreakdown')
+    expect(cardPlatforms(w)).toEqual([])
   })
 })
