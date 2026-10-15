@@ -43,6 +43,7 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 	}
 
 	names := make(map[string]ResponsesNamespaceName)
+	customOwners := make(map[string]string)
 	for _, raw := range tools {
 		tool, ok := raw.(map[string]any)
 		if !ok || strings.TrimSpace(stringValue(tool["type"])) != "namespace" {
@@ -54,11 +55,28 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 		}
 		for _, rawChild := range namespaceChildren(tool) {
 			child, ok := rawChild.(map[string]any)
-			if !ok || strings.TrimSpace(stringValue(child["type"])) != "function" {
+			if !ok {
 				continue
 			}
 			name := strings.TrimSpace(stringValue(child["name"]))
 			if name == "" {
+				continue
+			}
+			switch strings.TrimSpace(stringValue(child["type"])) {
+			case "function":
+			case "custom":
+				// Codex code mode declares exec as a custom child of the functions
+				// namespace but records its calls as namespace-less custom_tool_call
+				// items, so the child is hoisted under its bare name.
+				if topLevel[name] {
+					return nil, false, fmt.Errorf("namespace custom tool %q/%q conflicts with a top-level tool of the same name; this upstream cannot disambiguate them, rename one of the tools", namespace, name)
+				}
+				if prev, exists := customOwners[name]; exists && prev != namespace {
+					return nil, false, fmt.Errorf("namespace custom tools %q/%q and %q/%q share a name; this upstream cannot disambiguate them, rename one of the tools", prev, name, namespace, name)
+				}
+				customOwners[name] = namespace
+				continue
+			default:
 				continue
 			}
 			flat := flattenNamespaceToolName(namespace, name)
@@ -72,7 +90,12 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 			names[flat] = entry
 		}
 	}
-	if len(names) == 0 {
+	for name, namespace := range customOwners {
+		if entry, exists := names[name]; exists {
+			return nil, false, fmt.Errorf("namespace custom tool %q/%q conflicts with namespace tool %q/%q flattened to the same name; this upstream cannot disambiguate them, rename one of the tools", namespace, name, entry.Namespace, entry.Name)
+		}
+	}
+	if len(names) == 0 && len(customOwners) == 0 {
 		return nil, false, nil
 	}
 
@@ -91,10 +114,27 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 		}
 		for _, rawChild := range namespaceChildren(tool) {
 			child, ok := rawChild.(map[string]any)
-			if !ok || strings.TrimSpace(stringValue(child["type"])) != "function" {
+			if !ok {
 				continue
 			}
 			name := strings.TrimSpace(stringValue(child["name"]))
+			switch strings.TrimSpace(stringValue(child["type"])) {
+			case "function":
+			case "custom":
+				if name == "" || seen[name] {
+					continue
+				}
+				seen[name] = true
+				hoisted := make(map[string]any, len(child))
+				for key, value := range child {
+					hoisted[key] = value
+				}
+				hoisted["name"] = name
+				flattened = append(flattened, hoisted)
+				continue
+			default:
+				continue
+			}
 			flat := flattenNamespaceToolName(namespace, name)
 			if name == "" || seen[flat] {
 				continue

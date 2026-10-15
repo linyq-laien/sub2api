@@ -715,3 +715,41 @@ func TestResponsesClientToolStreamRestorer_RestoresAllTerminalEvents(t *testing.
 		})
 	}
 }
+
+func TestAdaptResponsesClientTools_LowersNamespaceCustomChildAndRestoresCustomCall(t *testing.T) {
+	req := map[string]any{
+		"tools": []any{
+			map[string]any{"type": "namespace", "name": "functions", "tools": []any{
+				map[string]any{"type": "custom", "name": "exec", "format": map[string]any{"type": "grammar"}},
+				map[string]any{"type": "function", "name": "wait"},
+			}},
+		},
+		"input": []any{
+			map[string]any{"type": "custom_tool_call", "id": "ctc_client", "call_id": "c1", "name": "exec", "input": "text(1)"},
+			map[string]any{"type": "custom_tool_call_output", "call_id": "c1", "output": "1"},
+		},
+	}
+
+	mapping, changed, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, mapping.CustomTools["exec"])
+	require.Contains(t, mapping.NamespaceTools, "functions__wait")
+
+	tools := requireResponsesClientToolValue[[]any](t, req["tools"])
+	require.Len(t, tools, 2)
+	exec := requireResponsesClientToolValue[map[string]any](t, tools[0])
+	require.Equal(t, "function", exec["type"])
+	require.Equal(t, "exec", exec["name"])
+	require.NotContains(t, exec, "format")
+	require.JSONEq(t, customToolInputSchema, string(requireResponsesClientToolValue[json.RawMessage](t, exec["parameters"])))
+	input := requireResponsesClientToolValue[[]any](t, req["input"])
+	require.Equal(t, "function_call", requireResponsesClientToolValue[map[string]any](t, input[0])["type"])
+	require.Equal(t, "function_call_output", requireResponsesClientToolValue[map[string]any](t, input[1])["type"])
+
+	payload := []byte(`{"output":[{"type":"function_call","id":"fc_1","call_id":"c2","name":"exec","arguments":"{\"input\":\"text(2)\"}"}]}`)
+	restored, restoredChanged, err := RestoreResponsesClientToolPayload(payload, mapping)
+	require.NoError(t, err)
+	require.True(t, restoredChanged)
+	require.JSONEq(t, `{"output":[{"type":"custom_tool_call","id":"ctc_1","call_id":"c2","name":"exec","input":"text(2)"}]}`, string(restored))
+}

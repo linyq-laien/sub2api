@@ -162,3 +162,82 @@ func TestRestoreResponsesNamespaceCalls_RewritesLifecycleItems(t *testing.T) {
 		})
 	}
 }
+
+// Codex code mode declares exec as a custom child of the functions namespace
+// and records its calls as namespace-less custom_tool_call items. Dropping the
+// child left function-only upstreams (Grok) without exec, so every code-mode
+// tool call, including image_gen, became unreachable.
+func TestFlattenResponsesNamespaces_HoistsCustomChildUnderBareName(t *testing.T) {
+	format := map[string]any{"type": "grammar", "syntax": "lark", "definition": "start: /.+/"}
+	req := map[string]any{"tools": []any{
+		map[string]any{"type": "namespace", "name": "functions", "tools": []any{
+			map[string]any{"type": "custom", "name": "exec", "description": "Run JavaScript", "format": format},
+			map[string]any{"type": "function", "name": "wait"},
+		}},
+	}}
+
+	names, changed, err := FlattenResponsesNamespaces(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, map[string]ResponsesNamespaceName{"functions__wait": {Namespace: "functions", Name: "wait"}}, names)
+	require.Equal(t, []any{
+		map[string]any{"type": "custom", "name": "exec", "description": "Run JavaScript", "format": format},
+		map[string]any{"type": "function", "name": "functions__wait"},
+	}, req["tools"])
+}
+
+func TestFlattenResponsesNamespaces_CustomOnlyNamespaceStillFlattens(t *testing.T) {
+	req := map[string]any{"tools": []any{
+		map[string]any{"type": "namespace", "name": "functions", "tools": []any{
+			map[string]any{"type": "custom", "name": "exec"},
+		}},
+	}}
+
+	names, changed, err := FlattenResponsesNamespaces(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Empty(t, names)
+	require.Equal(t, []any{map[string]any{"type": "custom", "name": "exec"}}, req["tools"])
+}
+
+func TestFlattenResponsesNamespaces_RejectsCustomChildCollisions(t *testing.T) {
+	tests := []struct {
+		name  string
+		tools []any
+		want  string
+	}{
+		{
+			name: "top-level tool",
+			tools: []any{
+				map[string]any{"type": "function", "name": "exec"},
+				map[string]any{"type": "namespace", "name": "functions", "tools": []any{
+					map[string]any{"type": "custom", "name": "exec"},
+				}},
+			},
+			want: "conflicts with a top-level tool",
+		},
+		{
+			name: "custom child in another namespace",
+			tools: []any{
+				map[string]any{"type": "namespace", "name": "a", "tools": []any{map[string]any{"type": "custom", "name": "exec"}}},
+				map[string]any{"type": "namespace", "name": "b", "tools": []any{map[string]any{"type": "custom", "name": "exec"}}},
+			},
+			want: "share a name",
+		},
+		{
+			name: "flattened function child",
+			tools: []any{
+				map[string]any{"type": "namespace", "name": "a", "tools": []any{map[string]any{"type": "custom", "name": "b__c"}}},
+				map[string]any{"type": "namespace", "name": "b", "tools": []any{map[string]any{"type": "function", "name": "c"}}},
+			},
+			want: "flattened to the same name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := FlattenResponsesNamespaces(map[string]any{"tools": tt.tools})
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
+}

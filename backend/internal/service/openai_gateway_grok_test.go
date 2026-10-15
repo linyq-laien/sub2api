@@ -3797,3 +3797,54 @@ func TestBuildGrokSchedulerExtraUpdates_NilWhenNoQuotaWindows(t *testing.T) {
 	require.Nil(t, buildGrokSchedulerExtraUpdates(&xai.QuotaSnapshot{}))
 	require.Nil(t, buildGrokSchedulerExtraUpdates(nil))
 }
+
+// Codex Desktop code mode sends exec only as a custom child of the functions
+// namespace inside Responses Lite additional_tools. Grok must still receive it,
+// otherwise every code-mode tool (shell, image_gen, ...) is unreachable.
+func TestPatchGrokResponsesBodyKeepsCodexCodeModeExec(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{
+		"model": "gpt-6.1-sol",
+		"tool_choice": "auto",
+		"input": [
+			{"type": "additional_tools", "tools": [
+				{"type": "namespace", "name": "functions", "tools": [
+					{"type": "custom", "name": "exec", "description": "Run JavaScript", "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/"}},
+					{"type": "function", "name": "wait", "parameters": {"type": "object", "properties": {"cell_id": {"type": "string"}}}}
+				]},
+				{"type": "namespace", "name": "image_gen", "tools": [
+					{"type": "function", "name": "imagegen", "parameters": {"type": "object", "properties": {"prompt": {"type": "string"}}}}
+				]}
+			]},
+			{"type": "custom_tool_call", "id": "ctc_prev", "call_id": "call_prev", "name": "exec", "input": "text(1)"},
+			{"type": "custom_tool_call_output", "call_id": "call_prev", "output": "1"},
+			{"type": "message", "role": "user", "content": "draw a pelican"}
+		]
+	}`)
+
+	patched, mapping, err := patchGrokResponsesBodyWithClientTools(body, "grok-4.7")
+	require.NoError(t, err)
+	require.True(t, mapping.CustomTools["exec"])
+
+	exec := gjson.GetBytes(patched, `tools.#(name=="exec")`)
+	require.True(t, exec.Exists(), string(patched))
+	require.Equal(t, "function", exec.Get("type").String())
+	require.Equal(t, "string", exec.Get("parameters.properties.input.type").String())
+	require.True(t, gjson.GetBytes(patched, `tools.#(name=="functions__wait")`).Exists())
+	require.True(t, gjson.GetBytes(patched, `tools.#(name=="image_gen__imagegen")`).Exists())
+	require.False(t, gjson.GetBytes(patched, `tools.#(type=="custom")`).Exists())
+	require.False(t, gjson.GetBytes(patched, `tools.#(type=="namespace")`).Exists())
+
+	prevCall := gjson.GetBytes(patched, `input.#(call_id=="call_prev")`)
+	require.Equal(t, "function_call", prevCall.Get("type").String())
+	require.JSONEq(t, `{"input":"text(1)"}`, prevCall.Get("arguments").String())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	setGrokResponsesClientToolMapping(c, mapping)
+	restored, err := restoreGrokResponsesClientToolPayload(c, []byte(`{"output":[{"type":"function_call","id":"fc_1","call_id":"call_1","name":"exec","arguments":"{\"input\":\"await tools.image_gen__imagegen({prompt:\\\"pelican\\\"})\"}"}]}`))
+	require.NoError(t, err)
+	require.Equal(t, "custom_tool_call", gjson.GetBytes(restored, "output.0.type").String())
+	require.Equal(t, "exec", gjson.GetBytes(restored, "output.0.name").String())
+	require.Equal(t, `await tools.image_gen__imagegen({prompt:"pelican"})`, gjson.GetBytes(restored, "output.0.input").String())
+}
