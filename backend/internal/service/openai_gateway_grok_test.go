@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1255,7 +1256,8 @@ func TestForwardGrokMediaImagesGenerationNormalizesImagineAlias(t *testing.T) {
 	require.NotEqual(t, defaultGrokUpstreamUserAgent(), upstream.lastReq.Header.Get("User-Agent"))
 	require.JSONEq(t, `{"model":"grok-imagine-image-quality","prompt":"draw a cat","response_format":"b64_json"}`, string(upstream.lastBody))
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.JSONEq(t, `{"data":[{"url":"https://images.test/cat.png"}]}`, recorder.Body.String())
+	require.JSONEq(t, `[{"url":"https://images.test/cat.png"}]`, gjson.Get(recorder.Body.String(), "data").Raw)
+	require.True(t, gjson.Get(recorder.Body.String(), "created").Exists())
 	require.Equal(t, "xai-image-req", result.RequestID)
 	require.Equal(t, "grok-imagine-image-quality", result.Model)
 	require.Equal(t, "grok-imagine-image-quality", result.BillingModel)
@@ -1446,6 +1448,44 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 	require.False(t, gjson.GetBytes(upstream.lastBody, "size").Exists())
 	require.Equal(t, ImageBillingSize1K, result.ImageSize)
 	require.Equal(t, "1024x1024", result.ImageInputSize)
+}
+
+func TestForwardGrokMediaImagesGenerationReturnsOpenAIShapedResponse(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","n":1}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	account := &Account{
+		ID: 66, Name: "grok", Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":       "api-key",
+			"base_url":      "https://xai.test/v1",
+			"model_mapping": map[string]any{"gpt-image-2": "grok-imagine-image-2.0"},
+		},
+	}
+	upstreamBody := `{"data":[{"b64_json":"aW1n","mime_type":"image/jpeg"}],"usage":{"cost_in_usd_ticks":400000000}}`
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "Content-Length": []string{strconv.Itoa(len(upstreamBody))}},
+		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ImageCount)
+
+	client := recorder.Body.Bytes()
+	require.True(t, gjson.GetBytes(client, "created").Exists(), string(client))
+	require.Equal(t, "opaque", gjson.GetBytes(client, "background").String())
+	require.Equal(t, "medium", gjson.GetBytes(client, "quality").String())
+	require.Equal(t, "aW1n", gjson.GetBytes(client, "data.0.b64_json").String())
+	require.NotEqual(t, strconv.Itoa(len(upstreamBody)), recorder.Header().Get("Content-Length"))
 }
 
 func TestForwardGrokMediaImagesEditMultipartConvertsToJSON(t *testing.T) {

@@ -761,14 +761,19 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 			}
 		}
 	}
-	if endpoint == GrokMediaEndpointVideoStatus {
+	clientBody := respBody
+	switch endpoint {
+	case GrokMediaEndpointVideoStatus:
 		respBody = rewriteGrokMediaVideoContentURLs(
 			respBody,
 			requestID,
 			grokMediaContentProxyURL(c, requestID),
 		)
+		clientBody = respBody
+	case GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits:
+		clientBody = normalizeGrokImagesResponseForOpenAIClients(respBody, time.Now())
 	}
-	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
+	writeGrokMediaResponse(c, resp, clientBody, s.responseHeaderFilter)
 	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
 	resultModel := requestModel
 	resultBillingModel := requestModel
@@ -1401,6 +1406,37 @@ func writeGrokMediaErrorResponse(c *gin.Context, statusCode int, errType, messag
 			"message": strings.TrimSpace(message),
 		},
 	})
+}
+
+// normalizeGrokImagesResponseForOpenAIClients fills the OpenAI Images
+// response fields xAI omits. OpenAI SDK-style clients deserialize them as
+// required (Codex image_gen fails with "missing field `created`" otherwise).
+// Billing keeps reading the raw xAI body.
+func normalizeGrokImagesResponseForOpenAIClients(body []byte, now time.Time) []byte {
+	if len(body) == 0 || !gjson.ValidBytes(body) || !gjson.GetBytes(body, "data").IsArray() {
+		return body
+	}
+	out := body
+	set := func(path string, value any) {
+		if gjson.GetBytes(out, path).Exists() {
+			return
+		}
+		if next, err := sjson.SetBytes(out, path, value); err == nil {
+			out = next
+		}
+	}
+	set("created", now.Unix())
+	set("background", "opaque")
+	set("quality", "medium")
+	if !gjson.GetBytes(out, "size").Exists() {
+		for _, item := range gjson.GetBytes(out, "data").Array() {
+			if size := detectOpenAIImageResultSize(item.Get("b64_json").String()); size != "" {
+				set("size", size)
+				break
+			}
+		}
+	}
+	return out
 }
 
 func writeGrokMediaResponse(c *gin.Context, resp *http.Response, body []byte, filter *responseheaders.CompiledHeaderFilter) {

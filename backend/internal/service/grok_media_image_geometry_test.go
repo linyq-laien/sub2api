@@ -1,7 +1,12 @@
 package service
 
 import (
+	"bytes"
+	"encoding/base64"
+	"image"
+	"image/jpeg"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -94,4 +99,41 @@ func TestSanitizeGrokMediaForwardBodyLeavesVideoResponseFormatUnset(t *testing.T
 	)
 	require.NoError(t, err)
 	require.False(t, gjson.GetBytes(out, "response_format").Exists())
+}
+
+// Codex image_gen deserializes Images responses into
+// ImageResponse{created, background, quality, size, data} with every field
+// required, while xAI only returns data (+ its own usage).
+func TestNormalizeGrokImagesResponseForOpenAIClients(t *testing.T) {
+	t.Parallel()
+
+	img := image.NewRGBA(image.Rect(0, 0, 32, 16))
+	var buf bytes.Buffer
+	require.NoError(t, jpeg.Encode(&buf, img, nil))
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	raw := []byte(`{"data":[{"b64_json":"` + encoded + `","mime_type":"image/jpeg"}],"usage":{"cost_in_usd_ticks":400000000}}`)
+
+	out := normalizeGrokImagesResponseForOpenAIClients(raw, time.Unix(1792072730, 0))
+
+	require.Equal(t, int64(1792072730), gjson.GetBytes(out, "created").Int())
+	require.Equal(t, "opaque", gjson.GetBytes(out, "background").String())
+	require.Equal(t, "medium", gjson.GetBytes(out, "quality").String())
+	require.Equal(t, "32x16", gjson.GetBytes(out, "size").String())
+	require.Equal(t, encoded, gjson.GetBytes(out, "data.0.b64_json").String())
+	require.Equal(t, int64(400000000), gjson.GetBytes(out, "usage.cost_in_usd_ticks").Int())
+}
+
+func TestNormalizeGrokImagesResponseForOpenAIClientsKeepsExistingFields(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(`{"created":7,"background":"transparent","quality":"low","size":"1024x1024","data":[{"url":"https://images.test/a.png"}]}`)
+	require.JSONEq(t, string(raw), string(normalizeGrokImagesResponseForOpenAIClients(raw, time.Unix(99, 0))))
+
+	urlOnly := normalizeGrokImagesResponseForOpenAIClients([]byte(`{"data":[{"url":"https://images.test/a.png"}]}`), time.Unix(99, 0))
+	require.Equal(t, int64(99), gjson.GetBytes(urlOnly, "created").Int())
+	require.False(t, gjson.GetBytes(urlOnly, "size").Exists())
+
+	for _, body := range []string{``, `not json`, `{"error":{"message":"x"}}`} {
+		require.Equal(t, body, string(normalizeGrokImagesResponseForOpenAIClients([]byte(body), time.Unix(99, 0))))
+	}
 }
