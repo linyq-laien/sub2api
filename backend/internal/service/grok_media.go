@@ -70,6 +70,7 @@ type GrokMediaRequestInfo struct {
 	MaskImageURL    string
 	Uploads         []OpenAIImagesUpload
 	MaskUpload      *OpenAIImagesUpload
+	ResponseFormat  string
 }
 
 func (r GrokMediaRequestInfo) ModerationBody() []byte {
@@ -130,6 +131,7 @@ func ParseGrokMediaRequest(contentType string, body []byte) GrokMediaRequestInfo
 	}
 	info.Model = strings.TrimSpace(info.Model)
 	info.Prompt = strings.TrimSpace(info.Prompt)
+	info.ResponseFormat = strings.ToLower(strings.TrimSpace(info.ResponseFormat))
 	info.Size = strings.TrimSpace(info.Size)
 	info.SizeTier = NormalizeImageBillingTierOrDefault(info.Size)
 	info.AspectRatio = strings.TrimSpace(info.AspectRatio)
@@ -150,6 +152,7 @@ func parseGrokMediaJSONRequest(body []byte, info *GrokMediaRequestInfo) {
 	info.Prompt = strings.TrimSpace(gjson.GetBytes(body, "prompt").String())
 	info.Size = strings.TrimSpace(gjson.GetBytes(body, "size").String())
 	info.AspectRatio = strings.TrimSpace(gjson.GetBytes(body, "aspect_ratio").String())
+	info.ResponseFormat = gjson.GetBytes(body, "response_format").String()
 	assignGrokMediaResolution(strings.TrimSpace(gjson.GetBytes(body, "resolution").String()), info)
 	if duration := gjson.GetBytes(body, "duration"); duration.Exists() && duration.Type == gjson.Number {
 		info.DurationSeconds = int(duration.Int())
@@ -265,6 +268,8 @@ func parseGrokMediaMultipartRequest(contentType string, body []byte, info *GrokM
 			info.Size = value
 		case "aspect_ratio":
 			info.AspectRatio = value
+		case "response_format":
+			info.ResponseFormat = value
 		case "resolution":
 			assignGrokMediaResolution(value, info)
 		case "duration":
@@ -988,6 +993,9 @@ func prepareGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, conten
 	if info.AspectRatio != "" {
 		payload["aspect_ratio"] = info.AspectRatio
 	}
+	if info.ResponseFormat != "" {
+		payload["response_format"] = info.ResponseFormat
+	}
 
 	images := make([]map[string]string, 0, len(info.InputImageURLs)+len(info.Uploads))
 	for _, imageURL := range info.InputImageURLs {
@@ -1163,6 +1171,13 @@ func sanitizeGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, conte
 		out, err := applyGrokImagineImageGeometry(body)
 		if err != nil {
 			return nil, "", fmt.Errorf("sanitize grok media size: %w", err)
+		}
+		// xAI defaults to url, but OpenAI gpt-image clients (Codex image_gen)
+		// require data[].b64_json, so only an explicit url request keeps url.
+		if strings.TrimSpace(gjson.GetBytes(out, "response_format").String()) == "" {
+			if out, err = sjson.SetBytes(out, "response_format", "b64_json"); err != nil {
+				return nil, "", fmt.Errorf("default grok media response_format: %w", err)
+			}
 		}
 		return out, contentType, nil
 	default:

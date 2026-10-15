@@ -58,3 +58,40 @@ func TestGrokImagineAspectRatioFromSize(t *testing.T) {
 	require.Equal(t, "4:3", grokImagineAspectRatioFromSize("1536x1152"))
 	require.Equal(t, "16:9", grokImagineAspectRatioFromSize("1792x1024"))
 }
+
+// xAI image endpoints return data[].url unless asked otherwise, while Codex's
+// image_gen extension strictly decodes data[].b64_json (OpenAI gpt-image default)
+// and fails with "missing field `b64_json`" on a url-only response.
+func TestSanitizeGrokMediaForwardBodyDefaultsImageResponseFormatToB64JSON(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []GrokMediaEndpoint{GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits} {
+		out, _, err := sanitizeGrokMediaForwardBody(endpoint, []byte(`{"model":"grok-imagine-image-2.0","prompt":"hi"}`), "application/json")
+		require.NoError(t, err)
+		require.Equal(t, "b64_json", gjson.GetBytes(out, "response_format").String(), endpoint)
+	}
+}
+
+func TestSanitizeGrokMediaForwardBodyKeepsExplicitImageResponseFormat(t *testing.T) {
+	t.Parallel()
+
+	out, _, err := sanitizeGrokMediaForwardBody(
+		GrokMediaEndpointImagesGenerations,
+		[]byte(`{"model":"grok-imagine-image-2.0","prompt":"hi","response_format":"url"}`),
+		"application/json",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "url", gjson.GetBytes(out, "response_format").String())
+}
+
+func TestSanitizeGrokMediaForwardBodyLeavesVideoResponseFormatUnset(t *testing.T) {
+	t.Parallel()
+
+	out, _, err := sanitizeGrokMediaForwardBody(
+		GrokMediaEndpointVideosGenerations,
+		[]byte(`{"model":"grok-imagine-video","prompt":"waves"}`),
+		"application/json",
+	)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(out, "response_format").Exists())
+}

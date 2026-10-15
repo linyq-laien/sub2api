@@ -1051,6 +1051,29 @@ func TestParseGrokMediaRequestBuildsMultipartModerationBody(t *testing.T) {
 	require.True(t, strings.HasPrefix(gjson.GetBytes(moderationBody, "images.0.image_url").String(), "data:image/"))
 }
 
+func TestPrepareGrokMediaForwardBodyKeepsMultipartResponseFormat(t *testing.T) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	require.NoError(t, writer.WriteField("prompt", "make it blue"))
+	require.NoError(t, writer.WriteField("model", "grok-imagine-image-2.0"))
+	require.NoError(t, writer.WriteField("response_format", "url"))
+	partHeader := textproto.MIMEHeader{}
+	partHeader.Set("Content-Disposition", `form-data; name="image"; filename="input.png"`)
+	partHeader.Set("Content-Type", "image/png")
+	part, err := writer.CreatePart(partHeader)
+	require.NoError(t, err)
+	_, err = part.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	out, contentType, err := prepareGrokMediaForwardBody(GrokMediaEndpointImagesEdits, buf.Bytes(), writer.FormDataContentType())
+	require.NoError(t, err)
+	require.Equal(t, "application/json", contentType)
+	out, _, err = sanitizeGrokMediaForwardBody(GrokMediaEndpointImagesEdits, out, contentType)
+	require.NoError(t, err)
+	require.Equal(t, "url", gjson.GetBytes(out, "response_format").String())
+}
+
 func TestParseGrokMediaVideoRequestResolution(t *testing.T) {
 	info := ParseGrokMediaRequest("application/json", []byte(`{"model":"grok-imagine-video","prompt":"waves","resolution":"720p"}`))
 
@@ -1230,7 +1253,7 @@ func TestForwardGrokMediaImagesGenerationNormalizesImagineAlias(t *testing.T) {
 	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Content-Type"))
 	require.Empty(t, upstream.lastReq.Header.Get("X-Grok-Client-Version"))
 	require.NotEqual(t, defaultGrokUpstreamUserAgent(), upstream.lastReq.Header.Get("User-Agent"))
-	require.JSONEq(t, `{"model":"grok-imagine-image-quality","prompt":"draw a cat"}`, string(upstream.lastBody))
+	require.JSONEq(t, `{"model":"grok-imagine-image-quality","prompt":"draw a cat","response_format":"b64_json"}`, string(upstream.lastBody))
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.JSONEq(t, `{"data":[{"url":"https://images.test/cat.png"}]}`, recorder.Body.String())
 	require.Equal(t, "xai-image-req", result.RequestID)
@@ -1263,7 +1286,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			modelMapping:     map[string]any{"grok-imagine-image-quality": "vendor-image-model"},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "vendor-image-model",
-			wantBody:         `{"model":"vendor-image-model","prompt":"draw a cat"}`,
+			wantBody:         `{"model":"vendor-image-model","prompt":"draw a cat","response_format":"b64_json"}`,
 			responseBody:     `{"data":[{"url":"https://images.test/mapped.png"}]}`,
 		},
 		{
@@ -1296,7 +1319,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			modelMapping:     map[string]any{"grok-imagine-image-quality": "vendor-image-model"},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "vendor-image-model",
-			wantBody:         `{"model":"vendor-image-model","prompt":"draw","resolution":"1k","aspect_ratio":"1:1"}`,
+			wantBody:         `{"model":"vendor-image-model","prompt":"draw","resolution":"1k","aspect_ratio":"1:1","response_format":"b64_json"}`,
 			responseBody:     `{"data":[{"url":"https://images.test/mapped.png"}]}`,
 		},
 		{
@@ -1307,7 +1330,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			modelMapping:     map[string]any{"grok-imagine-image-quality": "   "},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "grok-imagine-image-quality",
-			wantBody:         `{"model":"grok-imagine-image-quality","prompt":"draw"}`,
+			wantBody:         `{"model":"grok-imagine-image-quality","prompt":"draw","response_format":"b64_json"}`,
 			responseBody:     `{"data":[{"url":"https://images.test/mapped.png"}]}`,
 		},
 	}
@@ -1419,7 +1442,7 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.NoError(t, err)
-	require.JSONEq(t, `{"model":"grok-imagine-image","prompt":"draw a cat","resolution":"1k","aspect_ratio":"1:1"}`, string(upstream.lastBody))
+	require.JSONEq(t, `{"model":"grok-imagine-image","prompt":"draw a cat","resolution":"1k","aspect_ratio":"1:1","response_format":"b64_json"}`, string(upstream.lastBody))
 	require.False(t, gjson.GetBytes(upstream.lastBody, "size").Exists())
 	require.Equal(t, ImageBillingSize1K, result.ImageSize)
 	require.Equal(t, "1024x1024", result.ImageInputSize)
