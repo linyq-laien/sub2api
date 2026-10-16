@@ -30,8 +30,9 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
-	if apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite {
-		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex alpha search is only available for OpenAI and Composite groups")
+	searchPlatform, ok := alphaSearchPlatformForGroup(apiKey.Group.Platform)
+	if !ok {
+		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex alpha search is only available for OpenAI, Grok and Composite groups")
 		return
 	}
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
@@ -149,7 +150,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			false,
 			false,
 			false,
-			service.PlatformOpenAI,
+			searchPlatform,
 		)
 		if err != nil || selection == nil || selection.Account == nil {
 			if failoverClientGone(c) {
@@ -157,7 +158,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 				return
 			}
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, service.PlatformOpenAI)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, searchPlatform)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -269,6 +270,19 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			zap.Int("upstream_status", failoverErr.StatusCode),
 			zap.Int("switch_count", switchCount),
 		)
+	}
+}
+
+// alphaSearchPlatformForGroup returns the account platform that serves Codex
+// standalone search for a group. Composite groups resolve to OpenAI models.
+func alphaSearchPlatformForGroup(groupPlatform string) (string, bool) {
+	switch groupPlatform {
+	case service.PlatformOpenAI, service.PlatformComposite:
+		return service.PlatformOpenAI, true
+	case service.PlatformGrok:
+		return service.PlatformGrok, true
+	default:
+		return "", false
 	}
 }
 

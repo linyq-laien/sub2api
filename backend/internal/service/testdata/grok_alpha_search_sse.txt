@@ -1,0 +1,294 @@
+event: response.created
+data: {"sequence_number":0,"type":"response.created","response":{"created_at":1792146681,"completed_at":null,"id":"b6b4798c-2d4d-9181-88fa-7536d7a81cfb","max_output_tokens":null,"model":"grok-4.7-build","object":"response","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.699999988079071,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"web_search"}],"top_p":0.949999988079071,"usage":null,"user":null,"incomplete_details":null,"status":"in_progress","store":false,"metadata":{"system_fingerprint":"fp_5719f1aec35dd73c"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+
+event: response.in_progress
+data: {"sequence_number":1,"type":"response.in_progress","response":{"created_at":1792146681,"completed_at":null,"id":"b6b4798c-2d4d-9181-88fa-7536d7a81cfb","max_output_tokens":null,"model":"grok-4.7-build","object":"response","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.699999988079071,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"web_search"}],"top_p":0.949999988079071,"usage":null,"user":null,"incomplete_details":null,"status":"in_progress","store":false,"metadata":{"system_fingerprint":"fp_5719f1aec35dd73c"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+
+event: response.output_item.added
+data: {"sequence_number":2,"type":"response.output_item.added","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"in_progress"},"output_index":0}
+
+event: response.reasoning_summary_part.added
+data: {"sequence_number":3,"type":"response.reasoning_summary_part.added","item_id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":0,"part":{"text":"","type":"summary_text"},"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"sequence_number":4,"type":"response.reasoning_summary_text.delta","delta":"用户询问 AWS Bedrock 的定义、使用方法及所需资格。","item_id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":0,"summary_index":0}
+
+event: response.reasoning_summary_text.done
+data: {"sequence_number":5,"type":"response.reasoning_summary_text.done","item_id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":0,"summary_index":0,"text":"用户询问 AWS Bedrock 的定义、使用方法及所需资格。"}
+
+event: response.reasoning_summary_part.done
+data: {"sequence_number":6,"type":"response.reasoning_summary_part.done","item_id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":0,"part":{"text":"用户询问 AWS Bedrock 的定义、使用方法及所需资格。","type":"summary_text"},"summary_index":0}
+
+event: response.output_item.done
+data: {"sequence_number":7,"type":"response.output_item.done","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[{"text":"用户询问 AWS Bedrock 的定义、使用方法及所需资格。","type":"summary_text"}],"type":"reasoning","status":"completed"},"output_index":0}
+
+event: response.output_item.added
+data: {"sequence_number":8,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":1}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":9,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","output_index":1}
+
+event: response.web_search_call.searching
+data: {"sequence_number":10,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","output_index":1}
+
+event: response.output_item.added
+data: {"sequence_number":11,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":2}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":12,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","output_index":2}
+
+event: response.web_search_call.searching
+data: {"sequence_number":13,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","output_index":2}
+
+event: response.web_search_call.completed
+data: {"sequence_number":14,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","output_index":1}
+
+event: response.output_item.done
+data: {"sequence_number":15,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","type":"web_search_call","status":"completed","action":{"type":"search","query":"AWS Bedrock what is it official documentation"}},"output_index":1}
+
+event: response.output_item.added
+data: {"sequence_number":16,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","summary":[],"type":"reasoning","status":"completed"},"output_index":3}
+
+event: response.output_item.done
+data: {"sequence_number":17,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-0","summary":[],"type":"reasoning","status":"completed"},"output_index":3}
+
+event: response.output_item.added
+data: {"sequence_number":18,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":4}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":19,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","output_index":4}
+
+event: response.web_search_call.searching
+data: {"sequence_number":20,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","output_index":4}
+
+event: response.web_search_call.completed
+data: {"sequence_number":21,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","output_index":2}
+
+event: response.output_item.done
+data: {"sequence_number":22,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","type":"web_search_call","status":"completed","action":{"type":"search","query":"Amazon Bedrock getting started prerequisites model access"}},"output_index":2}
+
+event: response.output_item.added
+data: {"sequence_number":23,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","summary":[],"type":"reasoning","status":"completed"},"output_index":5}
+
+event: response.output_item.done
+data: {"sequence_number":24,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-1","summary":[],"type":"reasoning","status":"completed"},"output_index":5}
+
+event: response.output_item.added
+data: {"sequence_number":25,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":6}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":26,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","output_index":6}
+
+event: response.web_search_call.searching
+data: {"sequence_number":27,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","output_index":6}
+
+event: response.web_search_call.completed
+data: {"sequence_number":28,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","output_index":4}
+
+event: response.output_item.done
+data: {"sequence_number":29,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","type":"web_search_call","status":"completed","action":{"type":"search","query":"Amazon Bedrock official documentation what is it site:aws.amazon.com OR site:docs.aws.amazon.com"}},"output_index":4}
+
+event: response.output_item.added
+data: {"sequence_number":30,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","summary":[],"type":"reasoning","status":"completed"},"output_index":7}
+
+event: response.output_item.done
+data: {"sequence_number":31,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-2","summary":[],"type":"reasoning","status":"completed"},"output_index":7}
+
+event: response.web_search_call.completed
+data: {"sequence_number":32,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","output_index":6}
+
+event: response.output_item.done
+data: {"sequence_number":33,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","type":"web_search_call","status":"completed","action":{"type":"search","query":"Amazon Bedrock getting started prerequisites model access site:docs.aws.amazon.com"}},"output_index":6}
+
+event: response.output_item.added
+data: {"sequence_number":34,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","summary":[],"type":"reasoning","status":"completed"},"output_index":8}
+
+event: response.output_item.done
+data: {"sequence_number":35,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-3","summary":[],"type":"reasoning","status":"completed"},"output_index":8}
+
+event: response.output_item.added
+data: {"sequence_number":36,"type":"response.output_item.added","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"in_progress"},"output_index":9}
+
+event: response.output_item.done
+data: {"sequence_number":37,"type":"response.output_item.done","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"completed"},"output_index":9}
+
+event: response.output_item.added
+data: {"sequence_number":38,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":10}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":39,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","output_index":10}
+
+event: response.web_search_call.searching
+data: {"sequence_number":40,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","output_index":10}
+
+event: response.web_search_call.completed
+data: {"sequence_number":41,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","output_index":10}
+
+event: response.output_item.done
+data: {"sequence_number":42,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html"}},"output_index":10}
+
+event: response.output_item.added
+data: {"sequence_number":43,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","summary":[],"type":"reasoning","status":"completed"},"output_index":11}
+
+event: response.output_item.done
+data: {"sequence_number":44,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-4","summary":[],"type":"reasoning","status":"completed"},"output_index":11}
+
+event: response.output_item.added
+data: {"sequence_number":45,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":12}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":46,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","output_index":12}
+
+event: response.web_search_call.searching
+data: {"sequence_number":47,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","output_index":12}
+
+event: response.web_search_call.completed
+data: {"sequence_number":48,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","output_index":12}
+
+event: response.output_item.done
+data: {"sequence_number":49,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html"}},"output_index":12}
+
+event: response.output_item.added
+data: {"sequence_number":50,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","summary":[],"type":"reasoning","status":"completed"},"output_index":13}
+
+event: response.output_item.done
+data: {"sequence_number":51,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-5","summary":[],"type":"reasoning","status":"completed"},"output_index":13}
+
+event: response.output_item.added
+data: {"sequence_number":52,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":14}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":53,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","output_index":14}
+
+event: response.web_search_call.searching
+data: {"sequence_number":54,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","output_index":14}
+
+event: response.web_search_call.completed
+data: {"sequence_number":55,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","output_index":14}
+
+event: response.output_item.done
+data: {"sequence_number":56,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html"}},"output_index":14}
+
+event: response.output_item.added
+data: {"sequence_number":57,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","summary":[],"type":"reasoning","status":"completed"},"output_index":15}
+
+event: response.output_item.done
+data: {"sequence_number":58,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-6","summary":[],"type":"reasoning","status":"completed"},"output_index":15}
+
+event: response.output_item.added
+data: {"sequence_number":59,"type":"response.output_item.added","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"in_progress"},"output_index":16}
+
+event: response.output_item.done
+data: {"sequence_number":60,"type":"response.output_item.done","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"completed"},"output_index":16}
+
+event: response.output_item.added
+data: {"sequence_number":61,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":17}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":62,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","output_index":17}
+
+event: response.web_search_call.searching
+data: {"sequence_number":63,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","output_index":17}
+
+event: response.web_search_call.completed
+data: {"sequence_number":64,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","output_index":17}
+
+event: response.output_item.done
+data: {"sequence_number":65,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.md"}},"output_index":17}
+
+event: response.output_item.added
+data: {"sequence_number":66,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","summary":[],"type":"reasoning","status":"completed"},"output_index":18}
+
+event: response.output_item.done
+data: {"sequence_number":67,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-7","summary":[],"type":"reasoning","status":"completed"},"output_index":18}
+
+event: response.output_item.added
+data: {"sequence_number":68,"type":"response.output_item.added","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","type":"web_search_call","status":"in_progress","action":{"type":"search","query":""}},"output_index":19}
+
+event: response.web_search_call.in_progress
+data: {"sequence_number":69,"type":"response.web_search_call.in_progress","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","output_index":19}
+
+event: response.web_search_call.searching
+data: {"sequence_number":70,"type":"response.web_search_call.searching","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","output_index":19}
+
+event: response.web_search_call.completed
+data: {"sequence_number":71,"type":"response.web_search_call.completed","item_id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","output_index":19}
+
+event: response.output_item.done
+data: {"sequence_number":72,"type":"response.output_item.done","item":{"id":"ws_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","type":"web_search_call","status":"completed","action":{"type":"search","query":"Amazon Bedrock model access enabled by default Anthropic first time use prerequisites"}},"output_index":19}
+
+event: response.output_item.added
+data: {"sequence_number":73,"type":"response.output_item.added","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","summary":[],"type":"reasoning","status":"completed"},"output_index":20}
+
+event: response.output_item.done
+data: {"sequence_number":74,"type":"response.output_item.done","item":{"id":"tco_b6b4798c-2d4d-9181-88fa-7536d7a81cfb_call-329e2333-2139-47c1-9dfd-0afdad81f6f1-8","summary":[],"type":"reasoning","status":"completed"},"output_index":20}
+
+event: response.output_item.added
+data: {"sequence_number":75,"type":"response.output_item.added","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"in_progress"},"output_index":21}
+
+event: response.output_item.done
+data: {"sequence_number":76,"type":"response.output_item.done","item":{"id":"rs_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","summary":[],"type":"reasoning","status":"completed"},"output_index":21}
+
+event: response.output_item.added
+data: {"sequence_number":77,"type":"response.output_item.added","item":{"content":[],"id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","role":"assistant","type":"message","status":"in_progress"},"output_index":22}
+
+event: response.content_part.added
+data: {"sequence_number":78,"type":"response.content_part.added","content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"part":{"type":"output_text","text":"","logprobs":[],"annotations":[]}}
+
+event: response.output_text.delta
+data: {"sequence_number":79,"type":"response.output_text.delta","content_index":0,"delta":"**","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":80,"type":"response.output_text.delta","content_index":0,"delta":"Amazon","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":81,"type":"response.output_text.delta","content_index":0,"delta":" Bed","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":82,"type":"response.output_text.delta","content_index":0,"delta":"rock","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":83,"type":"response.output_text.delta","content_index":0,"delta":"**","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":84,"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":85,"type":"response.output_text.delta","content_index":0,"delta":"是","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":86,"type":"response.output_text.delta","content_index":0,"delta":" AWS","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":87,"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":88,"type":"response.output_text.delta","content_index":0,"delta":"的","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":89,"type":"response.output_text.delta","content_index":0,"delta":"全","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.delta
+data: {"sequence_number":90,"type":"response.output_text.delta","content_index":0,"delta":"托管","item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"logprobs":[]}
+
+event: response.output_text.annotation.added
+data: {"sequence_number":1075,"type":"response.output_text.annotation.added","annotation":{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html"},"annotation_index":0,"content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22}
+
+event: response.output_text.annotation.added
+data: {"sequence_number":1076,"type":"response.output_text.annotation.added","annotation":{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html"},"annotation_index":1,"content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22}
+
+event: response.output_text.annotation.added
+data: {"sequence_number":1077,"type":"response.output_text.annotation.added","annotation":{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html"},"annotation_index":2,"content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22}
+
+event: response.output_text.done
+data: {"sequence_number":1099,"type":"response.output_text.done","content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"text":"**Amazon Bedrock** 是 AWS 的全托管生成式 AI 服务：通过统一 API 安全调用多家厂商的高性能基础模型（foundation models），用来构建和扩展生成式 AI 应用与 Agent，无需自己管理模型基础设施。\n\n### 它是什么\n官方说明：Amazon Bedrock 提供安全、企业级的基础模型访问，支持构建和扩展生成式 AI 应用。它是 serverless 的","logprobs":[]}
+
+event: response.content_part.done
+data: {"sequence_number":1100,"type":"response.content_part.done","content_index":0,"item_id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","output_index":22,"part":{"type":"output_text","text":"**Amazon Bedrock** 是 AWS 的全托管生成式 AI 服务：通过统一 API 安全调用多家厂商的高性能基础模型（foundation models），用来构建和扩展生成式 AI 应用与 Agent，无需自己管理模型基础设施。\n\n### 它是什么\n官方说明：Amazon Bedrock 提供安全、企业级的基础模型访问，支持构建和扩展生成式 AI 应用。它是 serverless 的","logprobs":[],"annotations":[{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html"}]}}
+
+event: response.output_item.done
+data: {"sequence_number":1101,"type":"response.output_item.done","item":{"content":[{"type":"output_text","text":"**Amazon Bedrock** 是 AWS 的全托管生成式 AI 服务：通过统一 API 安全调用多家厂商的高性能基础模型（foundation models），用来构建和扩展生成式 AI 应用与 Agent，无需自己管理模型基础设施。\n\n### 它是什么\n官方说明：Amazon Bedrock 提供安全、企业级的基础模型访问，支持构建和扩展生成式 AI 应用。它是 serverless 的","logprobs":[],"annotations":[{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html"}]}],"id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","role":"assistant","type":"message","status":"completed"},"output_index":22}
+
+event: response.completed
+data: {"sequence_number":1102,"type":"response.completed","response":{"created_at":1792146681,"completed_at":1792146708,"id":"b6b4798c-2d4d-9181-88fa-7536d7a81cfb","max_output_tokens":null,"model":"grok-4.7-build","object":"response","output":[{"content":[{"type":"output_text","text":"**Amazon Bedrock** 是 AWS 的全托管生成式 AI 服务：通过统一 API 安全调用多家厂商的高性能基础模型（foundation models），用来构建和扩展生成式 AI 应用与 Agent，无需自己管理模型基础设施。\n\n### 它是什么\n官方说明：Amazon Bedrock 提供安全、企业级的基础模型访问，支持构建和扩展生成式 AI 应用。它是 serverless 的，可用统一 API 做推理，也能做模型定制（如微调）、知识库（RAG）、Agent、Guardrails 等。文档写明支持 100+ 模型，提供商包括 Amazon、Anthropic、DeepSeek、Moonshot AI（Kimi）、MiniMax、OpenAI、xAI 等。  \n来源：[Overview - Amazon Bedrock](https://docs.aws.amazon.c","logprobs":[],"annotations":[{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/foundation-models-reference.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-marketplace-subscribe-to-a-model.html"},{"type":"url_citation","url":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html","start_index":0,"end_index":0,"title":"https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html"}]}],"id":"msg_b6b4798c-2d4d-9181-88fa-7536d7a81cfb","role":"assistant","type":"message","status":"completed"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.699999988079071,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"web_search"}],"top_p":0.949999988079071,"usage":{"input_tokens":89307,"input_tokens_details":{"cached_tokens":54016},"output_tokens":2086,"output_tokens_details":{"reasoning_tokens":817},"total_tokens":91393,"num_sources_used":0,"num_server_side_tools_used":9,"cost_in_usd_ticks":1551060000,"server_side_tool_usage_details":{"web_search_calls":9,"x_search_calls":0,"x_posts_fetched":0,"x_users_fetched":0,"code_interpreter_calls":0,"file_search_calls":0,"mcp_calls":0,"document_search_calls":0,"image_generation_calls":0},"context_details":{"input_tokens":36639,"output_tokens":1627}},"user":null,"incomplete_details":null,"status":"completed","store":false,"metadata":{"system_fingerprint":"fp_5719f1aec35dd73c"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+

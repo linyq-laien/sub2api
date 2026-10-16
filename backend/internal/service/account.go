@@ -1873,7 +1873,9 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	}
 	if a.IsGrok() {
 		switch capability {
-		case OpenAIEndpointCapabilityChatCompletions:
+		case OpenAIEndpointCapabilityChatCompletions, OpenAIEndpointCapabilityAlphaSearch:
+			// xAI Responses supports the hosted web_search tool that serves
+			// Codex standalone search on Grok accounts.
 			return true
 		case OpenAIEndpointCapabilityGrokMediaGeneration:
 			eligible, reason := a.GrokMediaGenerationEligibility()
