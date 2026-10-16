@@ -784,6 +784,8 @@ type AdminUserSubscription struct {
 	AssignedBy *int64    `json:"assigned_by"`
 	AssignedAt time.Time `json:"assigned_at"`
 	Notes      string    `json:"notes"`
+	// UserNotes 是订阅所属用户的管理员备注（如岗位），便于分组时参考。
+	UserNotes string `json:"user_notes"`
 
 	AssignedByUser *User `json:"assigned_by_user,omitempty"`
 }

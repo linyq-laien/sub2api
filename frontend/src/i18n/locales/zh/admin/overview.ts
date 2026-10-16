@@ -556,7 +556,7 @@ export default {
       enterEmail: '请输入邮箱',
       enterPassword: '请输入密码',
       enterUsername: '请输入用户名（选填）',
-      enterNotes: '请输入备注（仅管理员可见）',
+      enterNotes: '如岗位：程序员 / 产品 / UI 等（仅管理员可见）',
       notesHint: '此备注仅对管理员可见',
       enterNewPassword: '请输入新密码（选填）',
       leaveEmptyToKeep: '留空则保持原密码不变',

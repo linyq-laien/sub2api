@@ -879,13 +879,17 @@ func UserSubscriptionFromServiceAdmin(sub *service.UserSubscription) *AdminUserS
 	if sub == nil {
 		return nil
 	}
-	return &AdminUserSubscription{
+	out := &AdminUserSubscription{
 		UserSubscription: userSubscriptionFromServiceBase(sub),
 		AssignedBy:       sub.AssignedBy,
 		AssignedAt:       sub.AssignedAt,
 		Notes:            sub.Notes,
 		AssignedByUser:   UserFromServiceShallow(sub.AssignedByUser),
 	}
+	if sub.User != nil {
+		out.UserNotes = sub.User.Notes
+	}
+	return out
 }
 
 func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscription {

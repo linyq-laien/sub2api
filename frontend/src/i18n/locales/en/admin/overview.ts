@@ -556,7 +556,7 @@ export default {
       enterEmail: 'Enter email',
       enterPassword: 'Enter password',
       enterUsername: 'Enter username (optional)',
-      enterNotes: 'Enter notes (admin only)',
+      enterNotes: 'e.g. role: developer / product / UI (admin only)',
       notesHint: 'This note is only visible to administrators',
       enterNewPassword: 'Enter new password (optional)',
       leaveEmptyToKeep: 'Leave empty to keep current password',

@@ -2142,6 +2142,8 @@ export interface UserSubscription {
   expires_at: string | null
   user?: User
   group?: Group
+  // 管理员接口返回：所属用户的备注（如岗位）
+  user_notes?: string
 }
 
 export interface SubscriptionProgress {

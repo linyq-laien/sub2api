@@ -230,6 +230,13 @@
                   : (row.user?.username || t('admin.redeem.userPrefix', { id: row.user_id }))
                 }}
               </RouterLink>
+              <span
+                v-if="row.user_notes"
+                :title="row.user_notes"
+                class="max-w-[10rem] truncate rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+              >
+                {{ row.user_notes }}
+              </span>
             </div>
           </template>
 
@@ -553,6 +560,7 @@
               >
                 <span class="font-medium text-gray-900 dark:text-white">{{ user.email }}</span>
                 <span class="ml-2 text-gray-500 dark:text-gray-400">#{{ user.id }}</span>
+                <span v-if="user.notes" class="ml-2 text-xs text-amber-700 dark:text-amber-300">{{ user.notes }}</span>
               </button>
             </div>
           </div>

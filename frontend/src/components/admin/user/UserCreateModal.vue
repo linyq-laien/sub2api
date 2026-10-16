@@ -26,6 +26,10 @@
         <input v-model="form.username" type="text" class="input" :placeholder="t('admin.users.enterUsername')" />
       </div>
       <div>
+        <label class="input-label">{{ t('admin.users.notes') }}</label>
+        <textarea v-model="form.notes" rows="2" class="input" :placeholder="t('admin.users.enterNotes')"></textarea>
+      </div>
+      <div>
         <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
         <select v-model="form.role" class="input">
           <option value="user">{{ t('admin.users.roles.user') }}</option>
