@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -128,14 +129,20 @@ func convertOpenAICompactInputsForGrok(body []byte) ([]byte, error) {
 			continue
 		}
 		changed = true
-		if encrypted := strings.TrimSpace(stringValue(item["encrypted_content"])); encrypted != "" {
+		encrypted := strings.TrimSpace(stringValue(item["encrypted_content"]))
+		summary := compactSummaryText(item["summary"])
+		if decoded, ok := decodeGrokCompactSummary(encrypted); ok {
+			if summary == "" {
+				summary = decoded
+			}
+		} else if encrypted != "" {
 			converted = append(converted, map[string]any{
 				"type":              "reasoning",
 				"summary":           []any{},
 				"encrypted_content": encrypted,
 			})
 		}
-		if summary := compactSummaryText(item["summary"]); summary != "" {
+		if summary != "" {
 			converted = append(converted, map[string]any{
 				"type": "message",
 				"role": "user",
@@ -167,7 +174,6 @@ func convertGrokResponseToOpenAICompact(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("response has no output array")
 	}
 
-	var encrypted string
 	var summaryParts []string
 	for _, raw := range output {
 		item, ok := raw.(map[string]any)
@@ -175,10 +181,6 @@ func convertGrokResponseToOpenAICompact(body []byte) ([]byte, error) {
 			continue
 		}
 		switch strings.TrimSpace(stringValue(item["type"])) {
-		case "reasoning":
-			if value := strings.TrimSpace(stringValue(item["encrypted_content"])); value != "" {
-				encrypted = value
-			}
 		case "message":
 			if content, ok := item["content"].([]any); ok {
 				for _, rawContent := range content {
@@ -193,21 +195,23 @@ func convertGrokResponseToOpenAICompact(body []byte) ([]byte, error) {
 			}
 		}
 	}
-	if encrypted == "" {
-		return nil, fmt.Errorf("response has no reasoning.encrypted_content")
+	summary := strings.TrimSpace(strings.Join(summaryParts, "\n"))
+	if summary == "" {
+		return nil, fmt.Errorf("response has no summary text")
 	}
 
+	// Codex replays only id + encrypted_content of a compaction item, so the
+	// summary must travel inside encrypted_content. Grok's own reasoning blob
+	// is not used: long summary turns often skip reasoning entirely.
 	compactItem := map[string]any{
 		"id":                "cmp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
 		"type":              "compaction",
 		"status":            "completed",
-		"encrypted_content": encrypted,
-	}
-	if summary := strings.TrimSpace(strings.Join(summaryParts, "\n")); summary != "" {
-		compactItem["summary"] = []any{map[string]any{
+		"encrypted_content": encodeGrokCompactSummary(summary),
+		"summary": []any{map[string]any{
 			"type": "summary_text",
 			"text": summary,
-		}}
+		}},
 	}
 	response["output"] = []any{compactItem}
 	response["status"] = "completed"
@@ -218,6 +222,27 @@ func convertGrokResponseToOpenAICompact(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("encode compact response: %w", err)
 	}
 	return encoded, nil
+}
+
+// grokCompactSummaryPrefix marks compaction blobs minted by this gateway for
+// Grok. They carry the plain summary (base64) rather than an xAI ciphertext,
+// so they are decoded locally instead of being replayed to xAI as reasoning.
+const grokCompactSummaryPrefix = "sub2api-grok-summary.v1:"
+
+func encodeGrokCompactSummary(summary string) string {
+	return grokCompactSummaryPrefix + base64.StdEncoding.EncodeToString([]byte(summary))
+}
+
+func decodeGrokCompactSummary(blob string) (string, bool) {
+	payload, ok := strings.CutPrefix(strings.TrimSpace(blob), grokCompactSummaryPrefix)
+	if !ok {
+		return "", false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(decoded)), true
 }
 
 func compactSummaryText(value any) string {

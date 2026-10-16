@@ -884,7 +884,9 @@ func TestConvertGrokResponseToOpenAICompact(t *testing.T) {
 	require.Equal(t, "resp_grok_1", gjson.GetBytes(converted, "id").String())
 	require.Len(t, gjson.GetBytes(converted, "output").Array(), 1)
 	require.Equal(t, "compaction", gjson.GetBytes(converted, "output.0.type").String())
-	require.Equal(t, "grok-encrypted-state", gjson.GetBytes(converted, "output.0.encrypted_content").String())
+	decoded, ok := decodeGrokCompactSummary(gjson.GetBytes(converted, "output.0.encrypted_content").String())
+	require.True(t, ok)
+	require.Equal(t, "summary text", decoded)
 	require.Equal(t, "summary text", gjson.GetBytes(converted, "output.0.summary.0.text").String())
 	require.Equal(t, int64(14), gjson.GetBytes(converted, "usage.total_tokens").Int())
 }
@@ -907,9 +909,36 @@ func TestPatchGrokResponsesBodyRestoresCompactInput(t *testing.T) {
 	require.Equal(t, "continue", gjson.GetBytes(patched, "input.2.content.0.text").String())
 }
 
-func TestConvertGrokResponseToOpenAICompactRequiresEncryptedContent(t *testing.T) {
-	_, err := convertGrokResponseToOpenAICompact([]byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"summary"}]}]}`))
-	require.ErrorContains(t, err, "reasoning.encrypted_content")
+// Long summary turns (e.g. 146k input tokens on grok-4.7) often return no
+// reasoning at all, so the compaction item must not depend on it.
+func TestConvertGrokResponseToOpenAICompactWithoutReasoning(t *testing.T) {
+	converted, err := convertGrokResponseToOpenAICompact([]byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"<summary>s</summary>"}]}]}`))
+	require.NoError(t, err)
+	decoded, ok := decodeGrokCompactSummary(gjson.GetBytes(converted, "output.0.encrypted_content").String())
+	require.True(t, ok)
+	require.Equal(t, "<summary>s</summary>", decoded)
+}
+
+func TestConvertGrokResponseToOpenAICompactRequiresSummaryText(t *testing.T) {
+	_, err := convertGrokResponseToOpenAICompact([]byte(`{"output":[{"type":"reasoning","encrypted_content":"x"}]}`))
+	require.ErrorContains(t, err, "summary text")
+}
+
+// Codex replays only id + encrypted_content of a compaction item. The summary
+// minted for Grok must come back as conversation context, never as an xAI
+// reasoning blob that xAI would fail to decrypt.
+func TestGrokCompactSummaryRoundTripsThroughCodexReplay(t *testing.T) {
+	converted, err := convertGrokResponseToOpenAICompact([]byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"<summary>built reverse()</summary>"}]}]}`))
+	require.NoError(t, err)
+	replayed := `{"type":"compaction","id":"` + gjson.GetBytes(converted, "output.0.id").String() +
+		`","encrypted_content":"` + gjson.GetBytes(converted, "output.0.encrypted_content").String() + `"}`
+
+	patched, err := patchGrokResponsesBody([]byte(`{"model":"grok-4.7","input":[`+replayed+`,{"type":"message","role":"user","content":[{"type":"input_text","text":"continue"}]}]}`), "grok-4.7")
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(patched, `input.#(type=="reasoning")`).Exists(), string(patched))
+	require.Equal(t, "message", gjson.GetBytes(patched, "input.0.type").String())
+	require.Contains(t, gjson.GetBytes(patched, "input.0.content.0.text").String(), "<summary>built reverse()</summary>")
+	require.Equal(t, "continue", gjson.GetBytes(patched, "input.1.content.0.text").String())
 }
 
 func TestBuildGrokResponsesRequestAllowsPublicAPIKeyBaseURLByDefault(t *testing.T) {
@@ -3970,7 +3999,9 @@ func TestForwardGrokResponsesRemoteCompactionV2(t *testing.T) {
 	require.True(t, completed, stream)
 	require.Len(t, doneItems, 1, stream)
 	require.Equal(t, "compaction", doneItems[0].Get("type").String())
-	require.Equal(t, "new-cipher", doneItems[0].Get("encrypted_content").String())
+	decoded, ok := decodeGrokCompactSummary(doneItems[0].Get("encrypted_content").String())
+	require.True(t, ok)
+	require.Equal(t, "<summary>done</summary>", decoded)
 	require.True(t, openAICompactProbeFoundCompactionItem(recorder.Body.Bytes()))
 }
 
