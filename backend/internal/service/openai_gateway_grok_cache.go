@@ -71,7 +71,7 @@ func resolveGrokCacheIdentity(c *gin.Context, body []byte, explicitKey, upstream
 	// /responses/compact rejects tool_choice and does not represent a normal
 	// conversation turn. Keep both cache identity and Free-tier routing
 	// augmentation out of this path.
-	if isOpenAIResponsesCompactPath(c) {
+	if isGrokCompactRequest(c) {
 		return ""
 	}
 
@@ -274,7 +274,7 @@ func grokClientToolCacheAccountPolicy(account *Account) (enabled, explicit bool)
 // signal prevents a generic Claude-compatible client (or the Chat bridge)
 // from silently opting into the mixed native/client tool route.
 func isGrokClaudeDesktopResponsesCacheRequest(c *gin.Context) bool {
-	if c == nil || c.Request == nil || c.Request.URL == nil || isOpenAIResponsesCompactPath(c) {
+	if c == nil || c.Request == nil || c.Request.URL == nil || isGrokCompactRequest(c) {
 		return false
 	}
 	path := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")

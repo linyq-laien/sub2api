@@ -67,10 +67,16 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 	// OpenAI /responses/compact is not a native xAI endpoint. Convert it into a
 	// normal Grok Responses turn that asks for a structured summary, then map the
 	// reply back to an OpenAI compaction item on the way out.
-	if isOpenAIResponsesCompactPath(c) {
+	if isGrokCompactRequest(c) {
 		patchedBody, err = buildGrokCompactRequestBody(patchedBody)
 		if err != nil {
 			return nil, err
+		}
+		if isOpenAINativeCompactionV2(c) {
+			// The summary turn runs unary upstream; the client still consumes
+			// remote compaction v2 over SSE, synthesized from the final JSON.
+			MarkOpenAICompactClientStream(c)
+			reqStream = false
 		}
 	}
 	// Derive the identity from the request xAI will actually see. This makes
@@ -189,7 +195,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		}
 		if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 			retryable, retryDelay, retryDeadline, retryMax := grokSameAccountRetryMetadata(account, resp.StatusCode, respBody)
-			return nil, &UpstreamFailoverError{
+			failoverErr := &UpstreamFailoverError{
 				StatusCode:               resp.StatusCode,
 				ResponseBody:             respBody,
 				ResponseHeaders:          resp.Header.Clone(),
@@ -199,6 +205,12 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 				SameAccountRetryDeadline: retryDeadline,
 				SameAccountRetryMax:      retryMax,
 			}
+			if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
+				failoverErr.Reason = GrokRequestRejectedReason
+				failoverErr.ClientStatusCode = resp.StatusCode
+				failoverErr.ClientMessage = upstreamMsg
+			}
+			return nil, failoverErr
 		}
 		return s.handleErrorResponse(ctx, resp, c, account, patchedBody, upstreamModel)
 	}
