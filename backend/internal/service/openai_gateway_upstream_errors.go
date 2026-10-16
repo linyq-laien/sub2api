@@ -408,6 +408,10 @@ const (
 	// OpenAIHTTPContinuationUnsupportedReason identifies accounts that cannot
 	// preserve an official Responses HTTP continuation without dropping state.
 	OpenAIHTTPContinuationUnsupportedReason = GatewayFailureReason("openai_http_continuation_unsupported")
+	// GrokRequestRejectedReason marks an xAI 400/422 that still fails over in
+	// case another deployment accepts the payload. When no account does, the
+	// client gets xAI's own status and message instead of a generic 502.
+	GrokRequestRejectedReason = GatewayFailureReason("grok_request_rejected")
 )
 
 // isOpenAIUpstreamAccessStateError recognizes provider-side credential state

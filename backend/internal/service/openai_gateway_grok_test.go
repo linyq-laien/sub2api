@@ -3911,3 +3911,112 @@ func TestPatchGrokResponsesBodyKeepsCodexCodeModeExec(t *testing.T) {
 	require.Equal(t, "exec", gjson.GetBytes(restored, "output.0.name").String())
 	require.Equal(t, `await tools.image_gen__imagegen({prompt:"pelican"})`, gjson.GetBytes(restored, "output.0.input").String())
 }
+
+// Codex remote compaction v2 sends a streaming /responses turn ending in a
+// compaction_trigger item and expects exactly one compaction item from
+// response.output_item.done. xAI rejects the trigger (422), so the Grok path
+// must run it as the unary summary turn and synthesize the v2 SSE stream.
+func TestForwardGrokResponsesRemoteCompactionV2(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"gpt-6-astra","stream":true,"input":[` +
+		`{"type":"message","role":"user","content":"hi"},` +
+		`{"type":"reasoning","summary":[],"encrypted_content":"grok-cipher"},` +
+		`{"type":"compaction_trigger"}],` +
+		`"tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	MarkOpenAINativeCompactionV2(c)
+
+	account := &Account{
+		ID: 4601, Name: "grok-api-key", Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
+		Credentials: map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(`{"id":"resp_sum","object":"response","created_at":1,"status":"completed","model":"grok-4.7",` +
+			`"output":[{"type":"reasoning","id":"rs_1","summary":[],"encrypted_content":"new-cipher"},` +
+			`{"type":"message","id":"msg_1","role":"assistant","content":[{"type":"output_text","text":"<summary>done</summary>"}]}],` +
+			`"usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}`)),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "gpt-6-astra", true, time.Now())
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 120, result.Usage.InputTokens+result.Usage.OutputTokens)
+
+	sent := upstream.lastBody
+	require.False(t, gjson.GetBytes(sent, `input.#(type=="compaction_trigger")`).Exists(), string(sent))
+	require.False(t, gjson.GetBytes(sent, "stream").Bool())
+	require.Equal(t, "none", gjson.GetBytes(sent, "tool_choice").String())
+	require.Contains(t, gjson.GetBytes(sent, "input.@reverse.0.content.0.text").String(), "<summary>")
+
+	require.Equal(t, "text/event-stream", recorder.Header().Get("Content-Type"))
+	stream := recorder.Body.String()
+	var doneItems []gjson.Result
+	completed := false
+	forEachOpenAISSEFrame(stream, func(eventType string, data []byte) {
+		switch eventType {
+		case "response.output_item.done":
+			doneItems = append(doneItems, gjson.GetBytes(data, "item"))
+		case "response.completed":
+			completed = true
+			require.NotEmpty(t, gjson.GetBytes(data, "response.id").String())
+		}
+	})
+	require.True(t, completed, stream)
+	require.Len(t, doneItems, 1, stream)
+	require.Equal(t, "compaction", doneItems[0].Get("type").String())
+	require.Equal(t, "new-cipher", doneItems[0].Get("encrypted_content").String())
+	require.True(t, openAICompactProbeFoundCompactionItem(recorder.Body.Bytes()))
+}
+
+func TestBuildGrokCompactRequestBodyDropsCompactionTrigger(t *testing.T) {
+	out, err := buildGrokCompactRequestBody([]byte(`{"model":"grok","input":[{"type":"message","role":"user","content":"hi"},{"type":"compaction_trigger"}]}`))
+	require.NoError(t, err)
+	require.Equal(t, `["message","message"]`, gjson.GetBytes(out, "input.#.type").Raw)
+}
+
+func TestExtractUpstreamErrorMessageReadsXAIStringError(t *testing.T) {
+	require.Equal(t, "Failed to deserialize the JSON body into the target type", extractUpstreamErrorMessage(
+		[]byte(`{"code":"Client specified an invalid argument","error":"Failed to deserialize the JSON body into the target type"}`)))
+	require.Equal(t, "nested", extractUpstreamErrorMessage([]byte(`{"error":{"message":"nested"}}`)))
+	require.Equal(t, "top", extractUpstreamErrorMessage([]byte(`{"message":"top","error":"ignored"}`)))
+	require.Empty(t, extractUpstreamErrorMessage([]byte(`{"error":{"code":"x"}}`)))
+}
+
+// A request-shape 422 still fails over (another xAI deployment may accept
+// it), but must carry xAI's own status and message for the client when no
+// account is left, instead of collapsing into a generic 502.
+func TestForwardGrokResponsesRejectedRequestCarriesClientError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok","input":[{"type":"compaction","id":"cmp_1","encrypted_content":"blob"},{"type":"message","role":"user","content":"hi"}],"stream":false}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+
+	account := &Account{
+		ID: 4602, Name: "grok-api-key", Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
+		Credentials: map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+	}
+	reject := func() *http.Response {
+		return &http.Response{
+			StatusCode: http.StatusUnprocessableEntity,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"code":"invalid_compaction","error":"could not decode the compaction blob"}`)),
+		}
+	}
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{reject(), reject()}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, GrokRequestRejectedReason, failoverErr.Reason)
+	require.Equal(t, http.StatusUnprocessableEntity, failoverErr.ClientStatusCode)
+	require.Equal(t, "could not decode the compaction blob", failoverErr.ClientMessage)
+}

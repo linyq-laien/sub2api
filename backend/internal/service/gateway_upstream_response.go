@@ -310,7 +310,15 @@ func extractUpstreamErrorMessage(body []byte) string {
 	}
 
 	// 兜底：尝试顶层 message
-	return gjson.GetBytes(body, "message").String()
+	if m := gjson.GetBytes(body, "message").String(); strings.TrimSpace(m) != "" {
+		return m
+	}
+
+	// xAI 风格：{"code":"...","error":"..."}，error 是字符串而非对象
+	if e := gjson.GetBytes(body, "error"); e.Type == gjson.String {
+		return e.String()
+	}
+	return ""
 }
 
 func extractUpstreamErrorCode(body []byte) string {
