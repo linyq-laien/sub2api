@@ -139,7 +139,7 @@ func miMoLoginGet(ctx context.Context, client *http.Client, raw string) ([]byte,
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, nil, errors.New("login HTTP failure")
 	}

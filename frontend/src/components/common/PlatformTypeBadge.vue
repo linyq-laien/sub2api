@@ -114,7 +114,7 @@ const typeLabel = computed(() => {
     case 'bedrock':
       return 'AWS'
     case 'service_account':
-      return 'Vertex'
+      return 'Agent Platform (Vertex)'
     default:
       return props.type
   }
