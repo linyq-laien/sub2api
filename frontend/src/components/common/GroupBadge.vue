@@ -5,8 +5,8 @@
       badgeClass
     ]"
   >
-    <!-- Platform logo -->
-    <PlatformIcon v-if="platform" :platform="platform" size="sm" />
+    <!-- Grok 分组对外以其他名义提供，不展示平台图标 -->
+    <PlatformIcon v-if="platform && platform !== 'grok'" :platform="platform" size="sm" />
     <!-- Group name -->
     <span :class="truncate ? 'truncate' : 'min-w-0 whitespace-normal [overflow-wrap:anywhere]'">{{ name }}</span>
     <!-- Right side label -->
