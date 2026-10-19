@@ -42,9 +42,6 @@
                   <h3 class="font-semibold text-gray-900 dark:text-white">
                     {{ subscription.group?.name || `Group #${subscription.group_id}` }}
                   </h3>
-                  <span :class="['rounded-md border px-2 py-0.5 text-[11px] font-medium', platformBadgeClass(subscription.group?.platform || '')]">
-                    {{ platformLabel(subscription.group?.platform || '') }}
-                  </span>
                 </div>
                 <p v-if="subscription.group?.description" class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
                   {{ subscription.group.description }}
@@ -258,7 +255,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
-import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
+import { platformBorderClass, platformButtonClass } from '@/utils/platformColors'
 import {
   getExpirationDateRelation,
   getRemainingDurationParts,
