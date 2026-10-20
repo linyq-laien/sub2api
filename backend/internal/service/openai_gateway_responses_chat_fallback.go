@@ -31,6 +31,28 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	body []byte,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
+	// Chat Completions upstreams cannot mint compaction items. Compact requests
+	// run as a plain summary turn whose reply is wrapped into a compaction item
+	// below; replayed compaction items become summary messages either way.
+	compact := isExplicitOpenAICompactContext(c)
+	if compact || bytes.Contains(body, []byte(`"compaction`)) {
+		if compact {
+			var err error
+			if body, err = buildGrokCompactRequestBody(body); err != nil {
+				writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+				return nil, err
+			}
+		}
+		converted, err := convertOpenAICompactInputsForGrok(body)
+		if err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, fmt.Errorf("convert compaction replay: %w", err)
+		}
+		body = converted
+		if compact && isOpenAINativeCompactionV2(c) {
+			MarkOpenAICompactClientStream(c)
+		}
+	}
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {
 		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
@@ -140,7 +162,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	if clientStream {
 		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, functionTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, stripToolCallMarkup, startTime)
 	}
-	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, functionTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, stripToolCallMarkup, startTime)
+	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, functionTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, stripToolCallMarkup, compact, startTime)
 }
 
 func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
@@ -156,6 +178,7 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	reasoningEffort *string,
 	serviceTier *string,
 	stripToolCallMarkup bool,
+	compact bool,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
@@ -172,7 +195,13 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
-	c.JSON(http.StatusOK, responsesResp)
+	if compact {
+		if err := writeChatCompactResponse(c, responsesResp); err != nil {
+			return nil, err
+		}
+	} else {
+		c.JSON(http.StatusOK, responsesResp)
+	}
 
 	return &OpenAIForwardResult{
 		RequestID:                   requestID,
@@ -187,6 +216,22 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 		Stream:                      false,
 		Duration:                    time.Since(startTime),
 	}, nil
+}
+
+func writeChatCompactResponse(c *gin.Context, responsesResp *apicompat.ResponsesResponse) error {
+	raw, err := json.Marshal(responsesResp)
+	if err != nil {
+		return fmt.Errorf("marshal compact summary response: %w", err)
+	}
+	compacted, err := convertGrokResponseToOpenAICompact(raw)
+	if err != nil {
+		writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", "compaction summary failed: "+err.Error())
+		return fmt.Errorf("convert chat compact response: %w", err)
+	}
+	if !writeOpenAICompactSSEBridge(c, http.StatusOK, compacted) {
+		c.Data(http.StatusOK, "application/json", compacted)
+	}
+	return nil
 }
 
 func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(

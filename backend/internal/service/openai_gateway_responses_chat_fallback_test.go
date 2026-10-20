@@ -470,3 +470,59 @@ func TestForwardResponses_ChatFallbackRestoresReasoningFromCache(t *testing.T) {
 	// 明文 summary 的 item 被回写进缓存（自愈）。
 	require.Equal(t, "plain thinking", cache.snapshotSets()["item_plain"])
 }
+
+func newChatFallbackCompactContext(body string) (*gin.Context, *httptest.ResponseRecorder) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	return c, rec
+}
+
+func chatFallbackJSONUpstream(content string) *httpUpstreamRecorder {
+	return &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(
+			`{"id":"chatcmpl_c","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":` + fmt.Sprintf("%q", content) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}`,
+		)),
+	}}
+}
+
+// Scenario: Codex remote compaction v2 against a Chat Completions upstream must
+// receive exactly one compaction output item over SSE.
+func TestForwardResponses_ChatFallbackCompactionV2ReturnsCompactionItem(t *testing.T) {
+	body := `{"model":"gpt-5.4","stream":true,"input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"build it"}]},{"type":"compaction_trigger"}]}`
+	c, rec := newChatFallbackCompactContext(body)
+	MarkOpenAINativeCompactionV2(c)
+	upstream := chatFallbackJSONUpstream("the summary")
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+
+	result, err := svc.forwardResponsesViaRawChatCompletions(context.Background(), c, forceChatResponsesFallbackAccount(), []byte(body), time.Now())
+	require.NoError(t, err)
+	require.Equal(t, 10, result.Usage.InputTokens)
+
+	require.False(t, gjson.GetBytes(upstream.lastBody, "stream").Bool())
+	require.Contains(t, gjson.GetBytes(upstream.lastBody, "messages.#(role==\"user\")#|@reverse|0.content").String(), "summary of the conversation")
+
+	require.Equal(t, 1, strings.Count(rec.Body.String(), "event: response.output_item.done"), rec.Body.String())
+	require.Equal(t, "compaction", gjson.Get(strings.SplitN(strings.SplitN(rec.Body.String(), "data: ", 2)[1], "\n", 2)[0], "item.type").String())
+	require.Contains(t, rec.Body.String(), "event: response.completed")
+	require.Contains(t, rec.Body.String(), grokCompactSummaryPrefix)
+}
+
+// Scenario: a compaction item replayed in a later turn reaches the upstream as
+// summary text instead of being dropped.
+func TestForwardResponses_ChatFallbackReplaysCompactionAsSummary(t *testing.T) {
+	blob := encodeGrokCompactSummary("earlier work: built reverse()")
+	body := `{"model":"gpt-5.4","stream":false,"input":[{"type":"compaction","id":"cmp_1","encrypted_content":"` + blob + `"},{"type":"message","role":"user","content":[{"type":"input_text","text":"continue"}]}]}`
+	c, rec := newChatFallbackCompactContext(body)
+	upstream := chatFallbackJSONUpstream("ok")
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+
+	_, err := svc.forwardResponsesViaRawChatCompletions(context.Background(), c, forceChatResponsesFallbackAccount(), []byte(body), time.Now())
+	require.NoError(t, err)
+	require.Contains(t, string(upstream.lastBody), "earlier work: built reverse()")
+	require.Equal(t, "response", gjson.Get(rec.Body.String(), "object").String())
+}
