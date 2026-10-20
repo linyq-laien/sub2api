@@ -14,7 +14,13 @@ import (
 // 双向补齐，不改 CC↔Responses / Anthropic / Grok 桥。
 
 func isOllamaCloudRawChatCompletionsAccount(account *Account) bool {
-	if account == nil || account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
+	if account == nil || account.Type != AccountTypeAPIKey {
+		return false
+	}
+	if account.Platform == PlatformOllama {
+		return isOllamaCloudBaseURL(account.GetOpenAIBaseURL())
+	}
+	if account.Platform != PlatformOpenAI {
 		return false
 	}
 	mode, _ := account.Extra[openai_compat.ExtraKeyResponsesMode].(string)

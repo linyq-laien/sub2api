@@ -71,6 +71,14 @@
     <rect x="65.5996" y="44.8008" width="9.6" height="28.8" rx="4.8" />
     <rect x="36.8008" y="44.8008" width="9.6" height="28.8" rx="4.8" />
   </svg>
+  <!-- Ollama: generic llama-head glyph -->
+  <svg v-else-if="platform === 'ollama'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 10V4.5a1.5 1.5 0 0 1 3 0V8m4 0V4.5a1.5 1.5 0 0 1 3 0V10" />
+    <path d="M6 12a6 6 0 0 1 12 0v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4z" />
+    <circle cx="9.7" cy="13" r=".6" fill="currentColor" />
+    <circle cx="14.3" cy="13" r=".6" fill="currentColor" />
+    <path d="M10.5 16.2h3" />
+  </svg>
   <!-- Composite group icon -->
   <svg v-else-if="platform === 'composite'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <circle cx="6" cy="12" r="3" />

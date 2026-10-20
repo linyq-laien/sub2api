@@ -240,6 +240,18 @@ var providerProfiles = map[string]*ProviderProfile{
 			},
 		},
 	},
+	PlatformOllama: {
+		Platform:         PlatformOllama,
+		DefaultMode:      AccountModePayG,
+		DefaultTestModel: DefaultOllamaTestModel,
+		// Ollama 的 Responses 端点不接受 Codex 私有的 input.additional_tools，故只登记
+		// Chat Completions；Responses / Anthropic 入站由网关转换后走 Chat Completions。
+		Modes: map[string]ProviderEndpoints{
+			AccountModePayG: {
+				BaseURLs: map[string]string{APIProtocolChatCompletions: DefaultOllamaBaseURL},
+			},
+		},
+	},
 }
 
 // LookupProviderProfile 返回 platform 对应的多协议供应商 profile；非此类平台返回 nil。

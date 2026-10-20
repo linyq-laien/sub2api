@@ -53,6 +53,7 @@ const (
 	PlatformTypeSafe    = domain.PlatformTypeSafe
 	PlatformCommandCode = domain.PlatformCommandCode
 	PlatformCline       = domain.PlatformCline
+	PlatformOllama      = domain.PlatformOllama
 	PlatformComposite   = domain.PlatformComposite
 	// PlatformKiro is retained for unsupported-platform threshold tests and legacy
 	// account rows. Scheduling-threshold evaluation never pauses kiro accounts.
@@ -93,6 +94,10 @@ const (
 	DefaultCommandCodeBaseURL = "https://api.commandcode.ai/provider/v1"
 	// Cline API：只提供 Chat Completions（{base}/chat/completions）与模型列表。
 	DefaultClineBaseURL = "https://api.cline.bot/api/v1"
+	// Ollama Cloud：只登记 Chat Completions（{base}/chat/completions）。
+	DefaultOllamaBaseURL = "https://ollama.com/v1"
+	// DefaultOllamaTestModel 是连接测试的默认模型。
+	DefaultOllamaTestModel = "deepseek-v4.1-flash:1017-cloud"
 )
 
 // 国产供应商 Anthropic 协议端点的默认 base_url（上游路径为 {base}/v1/messages）。

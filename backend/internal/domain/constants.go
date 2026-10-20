@@ -38,7 +38,11 @@ const (
 	PlatformCommandCode = "command_code"
 	// PlatformCline 是 Cline API（多模型聚合，OpenAI 兼容 Chat Completions；按量积分计费，
 	// 另有 ClinePass 订阅）。
-	PlatformCline     = "cline"
+	PlatformCline = "cline"
+	// PlatformOllama 是 Ollama Cloud（https://ollama.com，OpenAI 兼容 Chat Completions）。
+	// 上游 Responses 端点不接受 Codex 的 input.additional_tools，故只登记 Chat Completions，
+	// Responses / Anthropic 入站统一经协议转换走 Chat Completions。
+	PlatformOllama    = "ollama"
 	PlatformComposite = "composite"
 )
 
