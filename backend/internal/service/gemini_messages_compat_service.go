@@ -1818,13 +1818,22 @@ func sleepGeminiBackoff(attempt int) {
 var (
 	sensitiveQueryParamRegex = regexp.MustCompile(`(?i)([?&](?:key|client_secret|access_token|refresh_token)=)[^&"\s]+`)
 	retryInRegex             = regexp.MustCompile(`Please retry in ([0-9.]+)s`)
+	providerModelPhraseRegex = regexp.MustCompile(`(?i)\bmodels?\s+(?:x-ai/|xai/)?grok[\w.\-/:]*`)
+	providerModelIDRegex     = regexp.MustCompile(`(?i)\b(?:x-ai/|xai/)?grok-[\w.\-/:]*`)
+	providerBrandRegex       = regexp.MustCompile(`(?i)\b(?:grok|x-?ai)\b`)
 )
 
+// sanitizeUpstreamErrorMessage masks credentials in query strings and hides the
+// upstream provider brand/model IDs so client-facing and logged messages do not
+// reveal which backend served the request.
 func sanitizeUpstreamErrorMessage(msg string) string {
 	if msg == "" {
 		return msg
 	}
-	return sensitiveQueryParamRegex.ReplaceAllString(msg, `$1***`)
+	msg = sensitiveQueryParamRegex.ReplaceAllString(msg, `$1***`)
+	msg = providerModelPhraseRegex.ReplaceAllString(msg, "The requested model")
+	msg = providerModelIDRegex.ReplaceAllString(msg, "the requested model")
+	return providerBrandRegex.ReplaceAllString(msg, "upstream")
 }
 
 func (s *GeminiMessagesCompatService) writeGeminiMappedError(c *gin.Context, account *Account, upstreamStatus int, upstreamRequestID string, body []byte) error {

@@ -10,7 +10,7 @@ import (
 
 const (
 	grokMissingUsageErrorCode = "grok_missing_usage"
-	grokMissingUsageMessage   = "xAI upstream returned a successful chat completion without billable usage"
+	grokMissingUsageMessage   = "upstream returned a successful chat completion without billable usage"
 )
 
 // hasBillableGrokChatUsage stays aligned with the aggregate token buckets used

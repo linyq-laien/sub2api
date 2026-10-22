@@ -753,7 +753,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	}
 	if endpoint == GrokMediaEndpointImagesGenerations || endpoint == GrokMediaEndpointImagesEdits {
 		if countOpenAIResponseImageOutputsFromJSONBytes(respBody) <= 0 {
-			setOpsUpstreamError(c, http.StatusBadGateway, "xAI upstream returned no image output", truncateString(string(respBody), 512))
+			setOpsUpstreamError(c, http.StatusBadGateway, "upstream returned no image output", truncateString(string(respBody), 512))
 			return nil, &UpstreamFailoverError{
 				StatusCode:      http.StatusBadGateway,
 				ResponseBody:    respBody,
@@ -1285,7 +1285,7 @@ func (s *OpenAIGatewayService) handleGrokMediaErrorResponse(
 	s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body)
 	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 	if upstreamMsg == "" {
-		upstreamMsg = fmt.Sprintf("xAI upstream returned status %d", resp.StatusCode)
+		upstreamMsg = fmt.Sprintf("upstream returned status %d", resp.StatusCode)
 	}
 
 	upstreamDetail := ""

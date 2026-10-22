@@ -66,7 +66,7 @@ func (s *OpenAIGatewayService) forwardGrokAlphaSearch(ctx context.Context, c *gi
 	if resp.StatusCode >= http.StatusBadRequest {
 		upstreamMsg := sanitizeUpstreamErrorMessage(extractUpstreamErrorMessage(respBody))
 		if upstreamMsg == "" {
-			upstreamMsg = fmt.Sprintf("xAI upstream returned status %d", resp.StatusCode)
+			upstreamMsg = fmt.Sprintf("upstream returned status %d", resp.StatusCode)
 		}
 		failover := s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody)
 		kind := "http_error"

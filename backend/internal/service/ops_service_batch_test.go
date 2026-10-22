@@ -137,7 +137,7 @@ func TestOpsServiceRecordErrorPersistsExplicitAccountAuthStatusZero(t *testing.T
 	require.NotNil(t, captured.UpstreamStatusCode)
 	require.Zero(t, *captured.UpstreamStatusCode)
 	require.NotNil(t, captured.UpstreamErrorMessage)
-	require.Equal(t, "Grok OAuth credentials require account action", *captured.UpstreamErrorMessage)
+	require.Equal(t, "upstream OAuth credentials require account action", *captured.UpstreamErrorMessage)
 	require.Nil(t, captured.UpstreamErrorDetail)
 	require.Nil(t, captured.UpstreamErrors)
 	require.NotNil(t, captured.UpstreamErrorsJSON)
