@@ -79,6 +79,15 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 			}
 			item = map[string]any{"type": "message", "role": role, "content": text}
 			itemType = "message"
+		case "agent_message":
+			// Codex multi_agent_v2 子智能体信封；xAI 不认该类型，按原顺序拼成 user 消息。
+			text := grokAgentMessageText(item["content"])
+			if strings.TrimSpace(text) == "" {
+				continue
+			}
+			item = map[string]any{"type": "message", "role": "user", "content": text}
+			itemType = "message"
+			role = "user"
 		case "custom_tool_call", "tool_search_call":
 			originalType := itemType
 			item["type"] = "function_call"
@@ -159,6 +168,30 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("set Grok Responses model input: %w", err)
 	}
 	return updated, nil
+}
+
+func grokAgentMessageText(value any) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	parts, ok := value.([]any)
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	for _, rawPart := range parts {
+		part, ok := rawPart.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch grokStringValue(part["type"]) {
+		case "input_text", "text":
+			b.WriteString(grokStringValue(part["text"]))
+		case "encrypted_content":
+			b.WriteString(grokStringValue(part["encrypted_content"]))
+		}
+	}
+	return b.String()
 }
 
 type grokToolOutputImage struct {
