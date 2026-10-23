@@ -360,6 +360,48 @@ func TestAccountHandlerGetAvailableModels_GeminiGoogleOneUsesConservativeCatalog
 	require.NotContains(t, ids, "gemini-2.5-flash-image")
 }
 
+func TestAccountHandlerGetAvailableModels_GeminiGoogleOneExplicitMappingOverridesCatalog(t *testing.T) {
+	svc := &availableModelsAdminService{
+		stubAdminService: newStubAdminService(),
+		account: service.Account{
+			ID:       46,
+			Name:     "google-one-mapped",
+			Platform: service.PlatformGemini,
+			Type:     service.AccountTypeOAuth,
+			Status:   service.StatusActive,
+			Credentials: map[string]any{
+				"oauth_type": "google_one",
+				"model_mapping": map[string]any{
+					"gemini-3.5-flash": "gemini-3.5-flash",
+					"my-flash":         "gemini-2.5-flash",
+				},
+			},
+		},
+	}
+	router := setupAvailableModelsRouter(svc)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/46/models", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Data []struct {
+			ID          string `json:"id"`
+			DisplayName string `json:"display_name"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	names := make(map[string]string, len(resp.Data))
+	for _, model := range resp.Data {
+		names[model.ID] = model.DisplayName
+	}
+	require.Equal(t, map[string]string{
+		"gemini-3.5-flash": "Gemini 3.5 Flash",
+		"my-flash":         "my-flash",
+	}, names)
+}
+
 func TestAccountHandlerGetAvailableModels_Antigravity(t *testing.T) {
 	defaults := antigravity.DefaultModels()
 	known := defaults[0]

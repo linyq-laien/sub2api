@@ -1156,6 +1156,38 @@ describe('EditAccountModal', () => {
     })
   })
 
+  it('loads and submits Gemini Google One OAuth model mapping edits', async () => {
+    const account = {
+      ...buildGrokOAuthAccount(),
+      name: 'Gemini Google One',
+      platform: 'gemini',
+      credentials: {
+        oauth_type: 'google_one',
+        refresh_token: 'gemini-rt',
+        model_mapping: { 'my-flash': 'gemini-2.5-flash' }
+      }
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const input = wrapper
+      .findAll('input')
+      .find((input) => (input.element as HTMLInputElement).value === 'gemini-2.5-flash')
+    expect(input).toBeTruthy()
+    await input!.setValue('gemini-3.5-flash')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      oauth_type: 'google_one',
+      refresh_token: 'gemini-rt',
+      model_mapping: { 'my-flash': 'gemini-3.5-flash' }
+    })
+  })
+
   it('uses the official xAI base URL when a Grok API-key account omits base_url', async () => {
     const account = buildGrokAPIKeyAccount()
     updateAccountMock.mockReset()
