@@ -11,7 +11,7 @@ import (
 )
 
 func TestCodexVersionConstants_Consistency(t *testing.T) {
-	require.True(t, strings.Contains(codexCLIUserAgent, openai.CodexDefaultOriginator+"/"+codexCLIVersion),
+	require.True(t, strings.Contains(codexCLIUserAgent, openai.CodexCLIOriginator+"/"+codexCLIVersion),
 		"codexCLIUserAgent must embed codexCLIVersion")
 
 	require.True(t, strings.Contains(DefaultOpenAICodexUserAgent, codexCLIVersion),

@@ -259,10 +259,12 @@ func canonicalizeCodexOriginator(name string) string {
 	return name
 }
 
-// CodexCLIOriginator 是 codex-rs 客户端的历史默认 originator，保留用于兼容识别。
+// CodexCLIOriginator 是 codex-rs 客户端的默认 originator，也是网关默认出站身份，
+// 与官方 Codex CLI 保持一致。
 const CodexCLIOriginator = "codex_cli_rs"
 
-// CodexDefaultOriginator 是网关默认使用的 Codex TUI originator。
+// CodexDefaultOriginator 是 Codex TUI 的 originator，仍作为官方客户端身份参与配对识别；
+// 网关默认出站身份已对齐 Codex CLI（CodexCLIOriginator）。
 const CodexDefaultOriginator = "codex-tui"
 
 // CodexUserAgentVersion 提取 Codex UA 的完整版本段，即 `{client}/{version} (...` 中的 version。
