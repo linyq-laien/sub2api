@@ -188,17 +188,20 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			body = accountScopedBody
 		}
 
+		// 对齐官方 CLI 的 prompt_cache_key 默认策略（SessionDerived）：
+		// Codex 形态请求未携带缓存键时注入派生 session id。须在指纹收敛
+		// 之前执行——收敛模式随后会用收敛会话覆盖。
+		if !isOpenAIResponsesCompactPath(c) {
+			body = ensureCodexPromptCacheKeyParity(body, passthroughClientHeaders(c), codexAccountIdentitySource(c, account), getAPIKeyIDFromContext(c))
+		}
+
 		stageCodexFingerprintIDs(c, nil)
 		// 指纹收敛：与非透传路径同门控（仅 OAuth、legacy compact 形态跳过）。
 		// 一次性解析收敛 ID：请求体 client_metadata 在此改写（raw 字节外科
 		// 手术，透传热路径禁全量 Unmarshal），出站头改写由请求构造器读取
 		// context 中的同一份 IDs 完成（turn_id 等随机字段两侧必须一致）。
 		if !isOpenAIResponsesCompactPath(c) {
-			var clientHeaders http.Header
-			if c != nil && c.Request != nil {
-				clientHeaders = c.Request.Header
-			}
-			fpIDs := resolveCodexFingerprintIDsFromRequest(account, clientHeaders)
+			fpIDs := resolveCodexFingerprintIDsFromRequest(account, passthroughClientHeaders(c))
 			if fpIDs != nil {
 				fpBody, fpChanged, fpErr := applyCodexFingerprintClientMetadataRaw(body, fpIDs)
 				if fpErr != nil {
@@ -713,6 +716,12 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	// 与请求体 client_metadata 共享同一份 IDs（与非透传路径相同的相对位置：
 	// 会话隔离之后、终态身份收口之前）。
 	applyStagedCodexFingerprintHeaders(c, account, req.Header)
+	// 会话身份头 parity：对齐官方 Codex CLI 的 wire 形态（session-id /
+	// thread-id / x-client-request-id 三件套、window=thread:0、剥离 CLI
+	// 不发送的下划线头）。指纹收敛模式已生成完整会话头，内部跳过。
+	if account.UsesOpenAICodexProtocol() && !isOpenAIResponsesCompactPath(c) {
+		applyCodexCLIIdentityHeaderParity(req.Header, passthroughClientHeaders(c), codexAccountIdentitySource(c, account), getAPIKeyIDFromContext(c), stagedCodexFingerprintIDs(c, account))
+	}
 	// 终态收口：透传路径的 OAuth 与非透传完全一致，同样强制统一出站身份
 	// （User-Agent / originator / version 同源自洽），客户端自报身份不会到达上游。
 	if account.UsesOpenAICodexProtocol() {
@@ -1008,6 +1017,14 @@ func isOpenAIPassthroughAllowedRequestHeader(lowerKey string, allowTimeoutHeader
 		return allowTimeoutHeaders
 	}
 	return openaiPassthroughAllowedHeaders[lowerKey]
+}
+
+// passthroughClientHeaders 返回客户端原始请求头（供 parity 派生读取）。
+func passthroughClientHeaders(c *gin.Context) http.Header {
+	if c == nil || c.Request == nil {
+		return nil
+	}
+	return c.Request.Header
 }
 
 func isOpenAIPassthroughTimeoutHeader(lowerKey string) bool {

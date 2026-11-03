@@ -190,7 +190,12 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 			return p
 		}
 	}
-	// TLS 启用但无绑定 profile → 空 Profile → dialer 使用内置默认值
+	// TLS 启用但无绑定 profile → 平台感知内置兜底：OpenAI 账号对齐官方
+	// Codex CLI（macOS 版，reqwest native-tls → SecureTransport）；其余平台
+	// 保持 Node.js 24.x 模板（Claude Code 等客户端）。
+	if account.IsOpenAIOAuthLike() {
+		return tlsfingerprint.CodexMacOSProfile()
+	}
 	return &tlsfingerprint.Profile{Name: "Built-in Default (Node.js 24.x)"}
 }
 

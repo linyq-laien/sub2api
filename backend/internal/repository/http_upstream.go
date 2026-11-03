@@ -1429,8 +1429,8 @@ func enableHTTP2KeepAlive(transport *http.Transport, protocolMode string) (*http
 	return h2, nil
 }
 
-// buildUpstreamTransportWithTLSFingerprint 构建带 TLS 指纹伪装的 Transport
-// 使用 utls 库模拟 Claude CLI 的 TLS 指纹
+// buildUpstreamTransportWithTLSFingerprint 构建带 TLS 指纹伪装的出站 Transport
+// 使用 utls 库模拟目标客户端的 TLS 指纹
 //
 // 参数:
 //   - settings: 连接池配置
@@ -1438,14 +1438,38 @@ func enableHTTP2KeepAlive(transport *http.Transport, protocolMode string) (*http
 //   - profile: TLS 指纹配置
 //
 // 返回:
-//   - *http.Transport: 配置好的 Transport 实例
+//   - http.RoundTripper: 配置好的 Transport 实例
 //   - error: 配置错误
 //
 // 代理类型处理:
 //   - nil/空: 直连，使用 TLSFingerprintDialer
 //   - http/https: HTTP 代理，使用 HTTPProxyDialer（CONNECT 隧道 + utls 握手）
 //   - socks5: SOCKS5 代理，使用 SOCKS5ProxyDialer（SOCKS5 隧道 + utls 握手）
-func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile) (*http.Transport, error) {
+//
+// 模板 ALPN 含 h2 时返回 tlsfingerprint.H2Transport：http.Transport 的自定义
+// DialTLSContext 返回 *utls.UConn，net/http 无法分派 ALPN h2，h2 协商 + h1
+// 写入会直接写坏连接（详见 tlsfingerprint.H2Transport）。
+func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile) (http.RoundTripper, error) {
+	if tlsfingerprint.ProfileOffersH2(profile) {
+		var dial func(ctx context.Context, network, addr string) (net.Conn, error)
+		if proxyURL == nil {
+			dial = tlsfingerprint.NewDialer(profile, nil).DialTLSContext
+		} else {
+			switch scheme := strings.ToLower(proxyURL.Scheme); scheme {
+			case "socks5", "socks5h":
+				dial = tlsfingerprint.NewSOCKS5ProxyDialer(profile, proxyURL).DialTLSContext
+			case "http":
+				dial = tlsfingerprint.NewHTTPProxyDialer(profile, proxyURL).DialTLSContext
+			default:
+				// 指纹 dialer 发明文 CONNECT 前缀，无法与 HTTPS 代理建 TLS；
+				// 未知 scheme 同样退回普通代理传输（无指纹）。
+				slog.Debug("tls_fingerprint_h2_transport_unknown_scheme_fallback", "scheme", scheme)
+				return buildUpstreamTransport(settings, proxyURL, upstreamProtocolModeDefault)
+			}
+		}
+		return tlsfingerprint.NewH2Transport(dial, openAIHTTP2ReadIdleTimeout, openAIHTTP2PingTimeout), nil
+	}
+
 	transport := &http.Transport{
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,

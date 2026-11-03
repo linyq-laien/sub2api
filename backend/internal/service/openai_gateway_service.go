@@ -473,6 +473,7 @@ type OpenAIGatewayService struct {
 	userPlatformQuotaRepo UserPlatformQuotaRepository
 	liveAttestation       liveattestation.Provider
 	liveAttestationCipher SecretEncryptor
+	tlsFPProfileService   *TLSFingerprintProfileService
 
 	openaiWSPoolOnce               sync.Once
 	openaiWSStateStoreOnce         sync.Once
@@ -589,6 +590,12 @@ func NewOpenAIGatewayService(
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
+}
+
+// SetTLSFingerprintProfileService 注入 TLS 指纹模板服务，供 OpenAI OAuth
+// 出站按账号启用 TLS 指纹伪装（DoWithTLS）。由 wire 装配阶段调用。
+func (s *OpenAIGatewayService) SetTLSFingerprintProfileService(svc *TLSFingerprintProfileService) {
+	s.tlsFPProfileService = svc
 }
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
