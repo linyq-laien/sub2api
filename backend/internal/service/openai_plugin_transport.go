@@ -8,12 +8,16 @@ func (s *OpenAIGatewayService) SetPluginManager(manager *PluginManager) {
 
 // doOpenAIUpstream 只在 OpenAI OAuth 能力绑定已启用时把真实请求交给插件。
 // 插件返回标准 http.Response，响应解析、错误映射、SSE 和计费仍由现有核心链处理。
+// 账号启用 TLS 指纹时经 DoWithTLS 出站（OpenAI 平台兜底 Codex CLI 模板）。
 func (s *OpenAIGatewayService) doOpenAIUpstream(request *http.Request, proxyURL string, account *Account) (*http.Response, error) {
 	if s.pluginManager != nil {
 		response, handled, err := s.pluginManager.RoundTripOpenAIOAuth(request.Context(), request, proxyURL, account)
 		if handled {
 			return response, err
 		}
+	}
+	if s.tlsFPProfileService != nil {
+		return s.httpUpstream.DoWithTLS(request, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
 	}
 	return s.httpUpstream.Do(request, proxyURL, account.ID, account.Concurrency)
 }

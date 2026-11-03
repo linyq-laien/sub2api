@@ -266,6 +266,45 @@ func (d *Dialer) DialTLSContext(ctx context.Context, network, addr string) (net.
 	return performTLSHandshake(ctx, conn, d.profile, addr)
 }
 
+// resolveProfileSupportedVersions 返回模板声明的 TLS 版本列表（空则默认 1.3+1.2）。
+func resolveProfileSupportedVersions(profile *Profile) []uint16 {
+	if profile != nil && len(profile.SupportedVersions) > 0 {
+		return profile.SupportedVersions
+	}
+	return []uint16{utls.VersionTLS13, utls.VersionTLS12}
+}
+
+// maxProfileTLSVersion 返回版本列表中的最高版本。
+func maxProfileTLSVersion(versions []uint16) uint16 {
+	max := uint16(0)
+	for _, v := range versions {
+		if v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// profileUsesEmptySessionID 判定模板是否应发送空 legacy_session_id：
+// 仅限显式扩展列表不含 session_ticket(35)/supported_versions(43) 的
+// TLS1.2-only 模板。Apple SecureTransport 形态（官方 Codex CLI macOS 版）
+// 符合；Node.js / rustls 等现代模板保留 utls 默认的 32 字节随机 id。
+func profileUsesEmptySessionID(profile *Profile) bool {
+	if profile == nil || len(profile.Extensions) == 0 {
+		return false
+	}
+	versions := resolveProfileSupportedVersions(profile)
+	if maxProfileTLSVersion(versions) > utls.VersionTLS12 {
+		return false
+	}
+	for _, e := range profile.Extensions {
+		if e == 35 || e == 43 {
+			return false
+		}
+	}
+	return true
+}
+
 // performTLSHandshake performs the uTLS handshake on an established connection.
 // It builds a ClientHello spec from the profile, applies it, and completes the handshake.
 // On failure, conn is closed and an error is returned.
@@ -281,6 +320,16 @@ func performTLSHandshake(ctx context.Context, conn net.Conn, profile *Profile, a
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("apply TLS preset: %w", err)
+	}
+
+	// utls 默认无条件生成 32 字节随机 legacy_session_id；对齐
+	// SecureTransport 等无 session_ticket 能力的 TLS1.2 客户端时改写为空。
+	if profileUsesEmptySessionID(profile) {
+		if err := tlsConn.BuildHandshakeState(); err != nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("build TLS handshake state: %w", err)
+		}
+		tlsConn.HandshakeState.Hello.SessionId = nil
 	}
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
@@ -363,10 +412,12 @@ func buildClientHelloSpecFromProfile(profile *Profile) *utls.ClientHelloSpec {
 		alpnProtocols = profile.ALPNProtocols
 	}
 
-	supportedVersions := []uint16{utls.VersionTLS13, utls.VersionTLS12}
-	if profile != nil && len(profile.SupportedVersions) > 0 {
-		supportedVersions = profile.SupportedVersions
-	}
+	supportedVersions := resolveProfileSupportedVersions(profile)
+
+	// 记录层版本上限跟随模板声明的最高版本：TLS1.2-only 模板（如 Apple
+	// SecureTransport / 旧 OpenSSL）不得宣告 TLS1.3 能力，否则 ClientHello
+	// 记录版本与 supported_versions 缺失的组合会自相矛盾。
+	tlsVersMax := maxProfileTLSVersion(supportedVersions)
 
 	keyShareGroups := []utls.CurveID{utls.X25519}
 	if profile != nil && len(profile.KeyShareGroups) > 0 {
@@ -451,7 +502,7 @@ func buildClientHelloSpecFromProfile(profile *Profile) *utls.ClientHelloSpec {
 		CipherSuites:       cipherSuites,
 		CompressionMethods: []uint8{0}, // null compression only (standard)
 		Extensions:         extensions,
-		TLSVersMax:         utls.VersionTLS13,
+		TLSVersMax:         tlsVersMax,
 		TLSVersMin:         utls.VersionTLS10,
 	}
 }

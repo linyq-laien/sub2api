@@ -275,6 +275,10 @@ func ProvideAccountTestService(
 		cfg,
 		tlsFPProfileService,
 	)
+	// OpenAI 网关的 TLS 指纹服务在此一并注入：本 provider 是装配期内同时
+	// 持有 openAIGatewayService 与 tlsFPProfileService 的位置，避免改动
+	// NewOpenAIGatewayService 的签名（该构造有大量测试调用点）。
+	openAIGatewayService.SetTLSFingerprintProfileService(tlsFPProfileService)
 	service.agentIdentityWS = openAIGatewayService
 	service.SetOpenAIGatewayService(openAIGatewayService)
 	service.SetSettingService(settingService)

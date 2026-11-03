@@ -101,10 +101,12 @@ func TestTLSFingerprintHTTPSProxyFallsBackWithoutBypassingProxy(t *testing.T) {
 	require.NoError(t, err)
 	transport, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, proxyURL, &tlsfingerprint.Profile{Name: "test"})
 	require.NoError(t, err)
-	require.NotNil(t, transport.Proxy)
-	require.Nil(t, transport.DialTLSContext)
+	httpTransport, ok := transport.(*http.Transport)
+	require.True(t, ok, "https proxy fallback must return plain *http.Transport")
+	require.NotNil(t, httpTransport.Proxy)
+	require.Nil(t, httpTransport.DialTLSContext)
 	req := &http.Request{URL: &url.URL{Scheme: "https", Host: "upstream.example"}}
-	resolved, err := transport.Proxy(req)
+	resolved, err := httpTransport.Proxy(req)
 	require.NoError(t, err)
 	require.Equal(t, "https://user:pass@proxy.example:8443", resolved.String())
 }
@@ -1044,4 +1046,27 @@ func TestHTTPUpstreamPublicHostsOnlyValidatesEveryRedirectHop(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.CheckRedirect(publicHop, via))
 	require.Error(t, client.CheckRedirect(publicHop, make([]*http.Request, 10)), "redirect chain stays capped")
+}
+
+func TestTLSFingerprintTransportSelectionByALPN(t *testing.T) {
+	// 无 ALPN 模板（如 Node.js 默认 / Codex macOS）→ HTTP/1.1 http.Transport
+	h1, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, nil, &tlsfingerprint.Profile{Name: "h1"})
+	require.NoError(t, err)
+	_, isHTTP := h1.(*http.Transport)
+	require.True(t, isHTTP, "plain profile must use *http.Transport")
+
+	// Codex macOS（SecureTransport，无 ALPN）→ http.Transport
+	mac, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, nil, tlsfingerprint.CodexMacOSProfile())
+	require.NoError(t, err)
+	_, macIsHTTP := mac.(*http.Transport)
+	require.True(t, macIsHTTP, "Codex macOS profile must use *http.Transport")
+
+	// ALPN 含 h2 的模板 → H2Transport
+	h2, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, nil, &tlsfingerprint.Profile{
+		Name:          "h2",
+		ALPNProtocols: []string{"h2", "http/1.1"},
+	})
+	require.NoError(t, err)
+	_, isH2 := h2.(*tlsfingerprint.H2Transport)
+	require.True(t, isH2, "h2 profile must use *tlsfingerprint.H2Transport")
 }
