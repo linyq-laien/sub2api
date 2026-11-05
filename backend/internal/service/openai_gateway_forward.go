@@ -1532,12 +1532,13 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	return req, nil
 }
 
-// codexIdentityOverrideUA 返回账号级显式配置的出站 User-Agent，供强制统一身份时作为覆写来源。
+// codexIdentityOverrideUA 返回账号出站 Codex 身份的候选 User-Agent（账号显式配置，
+// 或按上游账号派生的固定设备身份，见 Account.codexIdentityUserAgent）。
 // ForceCodexCLI 语义是「强制使用 Codex CLI 身份」，等价于使用网关规范身份，故返回空串；
 // 该优先级与历史行为一致（ForceCodexCLI 在账号自定义 UA 之后生效）。
 func (s *OpenAIGatewayService) codexIdentityOverrideUA(account *Account) string {
 	if s != nil && s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
 		return ""
 	}
-	return account.GetOpenAIUserAgent()
+	return account.codexIdentityUserAgent()
 }

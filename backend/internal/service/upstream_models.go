@@ -1319,14 +1319,14 @@ func (s *AccountTestService) buildOpenAIOAuthUpstreamModelsRequest(ctx context.C
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	identity := resolveCodexOutboundIdentity(credentialAccount.GetOpenAIUserAgent())
+	identity := resolveCodexOutboundIdentity(credentialAccount.codexIdentityUserAgent())
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Originator", identity.originator)
 	req.Header.Set("User-Agent", identity.userAgent)
 	req.Header.Set("Version", identity.version)
 	setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
 	credentialAccount.ApplyHeaderOverrides(req.Header)
-	enforceCodexIdentityHeadersWithUA(req.Header, credentialAccount.GetOpenAIUserAgent())
+	enforceCodexIdentityHeadersWithUA(req.Header, credentialAccount.codexIdentityUserAgent())
 	return req, nil
 }
 

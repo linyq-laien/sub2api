@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"net/http"
 	"regexp"
 	"strings"
@@ -10,6 +12,41 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/google/uuid"
 )
+
+// codexAccountPersonaSuffixes 是 OAuth 账号未配置 User-Agent 时按账号派生的设备段。
+// 取值来自真实 Codex CLI 入站流量（macOS arm64，与 Codex macOS TLS 模板一致）。
+// 每个上游账号确定性地固定其中一个：同一账号对外始终是同一台设备，账号之间不共用
+// 同一指纹。追加新条目会改变部分账号的设备，只能追加在末尾并接受该迁移。
+var codexAccountPersonaSuffixes = []string{
+	" (Mac OS 27.0.1; arm64) Apple_Terminal/488",
+	" (Mac OS 27.0.1; arm64) iTerm.app/3.7.4",
+	" (Mac OS 26.5.0; arm64) vscode/1.143.1",
+	" (Mac OS 27.0.0; arm64) ghostty/1.3.1",
+	" (Mac OS 26.3.0; arm64) iTerm.app/3.7.6",
+	" (Mac OS 27.0.0; arm64) Apple_Terminal/488",
+}
+
+// codexIdentityUserAgent 返回账号出站 Codex 身份的候选 User-Agent：
+// 账号显式配置优先；未配置且面板未自定义规范 UA 时，按上游账号派生固定设备身份；
+// 其余情况返回空串，交给规范身份。版本段始终由 resolveCodexOutboundIdentity 重建。
+func (a *Account) codexIdentityUserAgent() string {
+	if a == nil {
+		return ""
+	}
+	if ua := strings.TrimSpace(a.GetOpenAIUserAgent()); ua != "" {
+		return ua
+	}
+	if !a.UsesOpenAICodexProtocol() || !strings.HasSuffix(codexCanonicalUserAgent(), codexCLIUserAgentSuffix) {
+		return ""
+	}
+	namespace := codexAccountIdentityNamespace(a)
+	if namespace == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("sub2api:codex-account-persona:v1:" + namespace))
+	idx := binary.BigEndian.Uint64(sum[:8]) % uint64(len(codexAccountPersonaSuffixes))
+	return openai.CodexCLIOriginator + "/" + codexCLIVersion + codexAccountPersonaSuffixes[idx]
+}
 
 // codexUpstreamMinVersion 上游 /backend-api/codex 接受的最低 version 头：
 // 若请求携带 version 且低于该值，上游直接 404（issue #3901，2026-07 实测）。

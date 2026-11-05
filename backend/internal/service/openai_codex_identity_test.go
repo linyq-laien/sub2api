@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -345,4 +346,48 @@ func TestCodexCanonicalUserAgentFallsBackWithoutResolver(t *testing.T) {
 
 	require.Equal(t, codexCLIUserAgent, CodexCanonicalUserAgent())
 	require.Equal(t, codexCLIVersion, CodexCanonicalClientVersion())
+}
+
+func TestAccountCodexIdentityUserAgentPersona(t *testing.T) {
+	newOAuth := func(id int64, chatgptID string) *Account {
+		return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"chatgpt_account_id": chatgptID}}
+	}
+
+	t.Run("stable per upstream account, independent of local row id", func(t *testing.T) {
+		a := newOAuth(1, "chatgpt-acct-a").codexIdentityUserAgent()
+		require.NotEmpty(t, a)
+		require.Equal(t, a, newOAuth(999, "chatgpt-acct-a").codexIdentityUserAgent())
+
+		identity := resolveCodexOutboundIdentity(a)
+		require.Equal(t, openai.CodexCLIOriginator, identity.originator)
+		require.Contains(t, identity.userAgent, "Mac OS")
+		require.NotContains(t, identity.userAgent, "Ubuntu")
+	})
+
+	t.Run("spreads accounts across personas", func(t *testing.T) {
+		seen := map[string]struct{}{}
+		for i := 0; i < 64; i++ {
+			seen[newOAuth(int64(i), fmt.Sprintf("chatgpt-acct-%d", i)).codexIdentityUserAgent()] = struct{}{}
+		}
+		require.Greater(t, len(seen), 1)
+	})
+
+	t.Run("explicit account UA wins", func(t *testing.T) {
+		acct := newOAuth(1, "chatgpt-acct-a")
+		acct.Credentials["user_agent"] = "codex_cli_rs/0.166.0 (Mac OS 15.5.0; arm64) iTerm.app/3.6.10"
+		require.Equal(t, "codex_cli_rs/0.166.0 (Mac OS 15.5.0; arm64) iTerm.app/3.6.10", acct.codexIdentityUserAgent())
+	})
+
+	t.Run("custom panel UA disables persona", func(t *testing.T) {
+		SetCodexCanonicalUserAgentResolver(func() string {
+			return "codex_cli_rs/0.166.0 (Windows 10.0.26100; x86_64) WindowsTerminal"
+		})
+		t.Cleanup(func() { SetCodexCanonicalUserAgentResolver(nil) })
+		require.Empty(t, newOAuth(1, "chatgpt-acct-a").codexIdentityUserAgent())
+	})
+
+	t.Run("no upstream identity falls back to canonical", func(t *testing.T) {
+		require.Empty(t, (&Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}).codexIdentityUserAgent())
+		require.Empty(t, (&Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"chatgpt_account_id": "x"}}).codexIdentityUserAgent())
+	})
 }

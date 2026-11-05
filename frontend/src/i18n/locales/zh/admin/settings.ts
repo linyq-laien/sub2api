@@ -542,7 +542,7 @@ export default {
         antigravityUserAgentVersionHint: '留空时使用 ANTIGRAVITY_USER_AGENT_VERSION 或内置默认值 1.23.2；填写后后台设置优先。',
         openaiCodexUserAgent: 'OpenAI Codex UA',
         openaiCodexUserAgentPlaceholder: 'codex_cli_rs/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal',
-        openaiCodexUserAgentHint: '出站统一使用的完整 Codex User-Agent，用于自定义 OS / 架构 / 终端指纹。留空则按下方版本号拼出标准 codex_cli_rs 形态（推荐）。填写后首段和尾部的版本号仍会被下方版本号同步覆盖，避免这条 UA 停在填写时的旧版本——上游会根据客户端身份和版本进行风控分层，陈旧或非官方形态可能返回 server_is_overloaded。',
+        openaiCodexUserAgentHint: '未单独配置 User-Agent 的 OAuth 账号出站使用的完整 Codex User-Agent，用于自定义 OS / 架构 / 终端指纹。留空（推荐）时，每个上游账号会按账号固定派生一个 macOS codex_cli_rs 设备身份，账号之间互不相同；填写后所有此类账号共用这一条。账号级 User-Agent 始终优先。首段和尾部的版本号仍会被下方版本号同步覆盖，避免这条 UA 停在填写时的旧版本——上游会根据客户端身份和版本进行风控分层，陈旧或非官方形态可能返回 server_is_overloaded。',
         openaiCodexClientVersion: 'Codex 客户端版本号',
         openaiCodexClientVersionPlaceholder: '留空则跟随自动同步',
         openaiCodexClientVersionHint: '网关对上游声明的 Codex 客户端版本号，User-Agent 与 version 头同源使用。留空表示使用自动同步到的官方最新稳定版；填写后固定为该版本，不再跟随同步。',
