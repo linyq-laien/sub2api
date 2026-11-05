@@ -602,6 +602,10 @@ func patchGrokResponsesBodyBase(body []byte, upstreamModel string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	out, err = normalizeGrokResponsesInclude(out)
+	if err != nil {
+		return nil, err
+	}
 	out, err = convertOpenAICompactInputsForGrok(out)
 	if err != nil {
 		return nil, err
@@ -777,6 +781,49 @@ func grokSupportsReasoningEffort(model string) bool {
 	default:
 		return false
 	}
+}
+
+// normalizeGrokResponsesInclude rewrites the Responses `include` array for xAI.
+// Newer Codex clients request "output.encrypted_content", which xAI rejects with
+// 400 `Argument not supported: "output.encrypted_content" in "include" field`.
+// xAI accepts "reasoning.encrypted_content" (the value older Codex sent), so map
+// the unsupported spelling onto it, keep other entries, and drop duplicates.
+func normalizeGrokResponsesInclude(body []byte) ([]byte, error) {
+	include := gjson.GetBytes(body, "include")
+	if !include.IsArray() || !bytes.Contains(body, []byte(`output.encrypted_content`)) {
+		return body, nil
+	}
+	const unsupported = "output.encrypted_content"
+	const supported = "reasoning.encrypted_content"
+	items := include.Array()
+	next := make([]any, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	changed := false
+	for _, item := range items {
+		if item.Type != gjson.String {
+			next = append(next, item.Value())
+			continue
+		}
+		value := item.String()
+		if value == unsupported {
+			value = supported
+			changed = true
+		}
+		if _, dup := seen[value]; dup {
+			changed = true
+			continue
+		}
+		seen[value] = struct{}{}
+		next = append(next, value)
+	}
+	if !changed {
+		return body, nil
+	}
+	out, err := sjson.SetBytes(body, "include", next)
+	if err != nil {
+		return nil, fmt.Errorf("normalize Grok include: %w", err)
+	}
+	return out, nil
 }
 
 // grokUnsupportedRecursiveFields 定义 Grok 平台（Responses 和 Chat Completions）不支持的字段

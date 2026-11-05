@@ -4051,3 +4051,36 @@ func TestForwardGrokResponsesRejectedRequestCarriesClientError(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, failoverErr.ClientStatusCode)
 	require.Equal(t, "could not decode the compaction blob", failoverErr.ClientMessage)
 }
+
+func TestPatchGrokResponsesBodyMapsUnsupportedOutputEncryptedContentInclude(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		include string
+		want    []string
+	}{
+		{"maps unsupported spelling", `["output.encrypted_content"]`, []string{"reasoning.encrypted_content"}},
+		{"dedupes with supported spelling", `["output.encrypted_content","reasoning.encrypted_content"]`, []string{"reasoning.encrypted_content"}},
+		{"keeps other entries in order", `["message.output_text.logprobs","output.encrypted_content"]`, []string{"message.output_text.logprobs", "reasoning.encrypted_content"}},
+		{"leaves supported value untouched", `["reasoning.encrypted_content"]`, []string{"reasoning.encrypted_content"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			body := []byte(`{"model":"gpt-5.6-sol","input":"hi","include":` + tt.include + `}`)
+			patched, err := patchGrokResponsesBody(body, "grok-4.3")
+			require.NoError(t, err)
+			require.True(t, json.Valid(patched))
+			var got []string
+			for _, item := range gjson.GetBytes(patched, "include").Array() {
+				got = append(got, item.String())
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+
+	noInclude, err := patchGrokResponsesBody([]byte(`{"model":"grok","input":"hi"}`), "grok-4.3")
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(noInclude, "include").Exists())
+}
