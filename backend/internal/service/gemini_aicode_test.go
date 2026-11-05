@@ -137,3 +137,25 @@ func TestGeminiAICodeModelDiscovery(t *testing.T) {
 	require.Equal(t, "https://aicode.googleapis.com/v1alpha:fetchConfig", stub.lastReq.URL.String())
 	require.Contains(t, string(result.Body), "models/gemini-3.5-flash-lite")
 }
+
+// The admin "sync upstream models" button must list AI Code experiences; AI Code
+// tokens are rejected by /v1beta/models, and a stale project_id must not divert
+// the account into the Code Assist guard.
+func TestGeminiAICodeUpstreamModelSync(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(
+		`{"availableExperiences":[{"name":"gemini-3.5-flash-lite"},{"name":"models/exp-b"},{"name":" "},{"name":"gemini-3.5-flash-lite"}]}`))}}
+	svc := &AccountTestService{httpUpstream: upstream, cfg: upstreamModelSyncTestConfig(), geminiTokenProvider: &GeminiTokenProvider{}}
+	a := &Account{ID: 7, Platform: PlatformGemini, Type: AccountTypeOAuth, Credentials: map[string]any{"client_id": geminicli.AICodeOAuthClientID, "access_token": "tok", "project_id": "stale"}}
+
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), a)
+	require.NoError(t, err)
+	require.Equal(t, []string{"exp-b", "gemini-3.5-flash-lite"}, models)
+	require.Equal(t, "https://aicode.googleapis.com/v1alpha:fetchConfig", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer tok", upstream.lastReq.Header.Get("Authorization"))
+
+	upstream.resp = &http.Response{StatusCode: http.StatusForbidden, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"code":403}}`))}
+	_, err = svc.FetchUpstreamSupportedModels(context.Background(), a)
+	var syncErr *UpstreamModelSyncError
+	require.ErrorAs(t, err, &syncErr)
+	require.Equal(t, http.StatusForbidden, syncErr.StatusCode)
+}

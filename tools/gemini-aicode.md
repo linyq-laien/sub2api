@@ -28,7 +28,7 @@
 - Gemini 原生、Messages、Chat Completions 及账号连接测试均走相同请求构造，保留图片、视频等 contents 内容。
 - 请求顶层使用 `aicode.experience` 和 `entitlement.userTier`，移除与其 oneof 冲突的 model；没有 Code Assist 的 request/project 包装。
 - 只有 `USER_TIER_NOT_ENTITLED` 且返回不同的 resolved_tier 时纠正并重试一次。许可证、地域、普通权限错误不会在此适配器中重试。
-- 模型列表从 `fetchConfig.availableExperiences` 获取。导入默认只启用参考验证过的 `gemini-3.5-flash-lite`，其他 experience 需按账号实际可用目录配置。
+- 模型列表从 `fetchConfig.availableExperiences` 获取（网关 `/v1beta/models` 与账号编辑页“同步上游支持的模型”按钮同源；AI Code 令牌无 Generative Language 权限，不能用 `/v1beta/models`）。导入默认只启用参考验证过的 `gemini-3.5-flash-lite`，其他 experience 先用同步按钮拉取账号实际可用目录再配置。
 - 使用参考验证过的非流式 generateContent，上游完整响应到达后转为单条 SSE 事件供流式客户端使用，不是逐 token 实时输出。
 - countTokens 不向其他产品接口回退，返回明确的不支持错误；未实现 AI Code 显式缓存操作。
 

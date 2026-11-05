@@ -816,6 +816,11 @@ func (s *AccountTestService) fetchUpstreamModelListRequest(ctx context.Context, 
 		return models, nil, nil, err
 	}
 
+	if account.IsGeminiAICode() {
+		models, req, err := s.fetchGeminiAICodeUpstreamModels(ctx, account)
+		return models, nil, req, err
+	}
+
 	req, err := s.buildUpstreamModelsRequest(ctx, account)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1376,6 +1381,39 @@ func (s *AccountTestService) buildGeminiUpstreamModelsRequest(ctx context.Contex
 	}
 
 	return req, nil
+}
+
+// fetchGeminiAICodeUpstreamModels lists the experiences this AI Code account may
+// pass as aicode.experience. It precedes the Code Assist project_id guard because
+// imported AI Code credentials may keep a stale project_id.
+func (s *AccountTestService) fetchGeminiAICodeUpstreamModels(ctx context.Context, account *Account) ([]string, *http.Request, error) {
+	if s.geminiTokenProvider == nil {
+		return nil, nil, newUpstreamModelSyncConfigError("Gemini token provider is not configured", nil)
+	}
+	accessToken, err := s.geminiTokenProvider.GetAccessToken(ctx, account)
+	if err != nil {
+		return nil, nil, newUpstreamModelSyncUpstreamError("Failed to get Gemini access token", err)
+	}
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return nil, nil, newUpstreamModelSyncConfigError("No Gemini access token is available", nil)
+	}
+	req, err := newGeminiAICodeFetchConfigRequest(ctx, accessToken)
+	if err != nil {
+		return nil, nil, newUpstreamModelSyncConfigError("Invalid Gemini AI Code model list URL", err)
+	}
+	body, err := s.readUpstreamModelsResponse(req, account)
+	if err != nil {
+		return nil, req, err
+	}
+	models, err := parseGeminiAICodeExperiences(body)
+	if err != nil {
+		return nil, req, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+	}
+	if len(models) == 0 {
+		return nil, req, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
+	}
+	return dedupeAndSortModelIDs(models), req, nil
 }
 
 func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Context, account *Account) ([]string, []byte, error) {

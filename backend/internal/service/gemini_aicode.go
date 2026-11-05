@@ -148,6 +148,40 @@ func doGeminiAICodeRequest(req *http.Request, do func(*http.Request) (*http.Resp
 	}
 }
 
+// newGeminiAICodeFetchConfigRequest builds the account-scoped experience catalog
+// request. AI Code tokens lack the Generative Language scope, so /v1beta/models
+// rejects them; fetchConfig is the only list this channel serves.
+func newGeminiAICodeFetchConfigRequest(ctx context.Context, token string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, geminiAICodeBaseURL+"/v1alpha:fetchConfig", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", geminiAICodeUserAgent)
+	return req, nil
+}
+
+// parseGeminiAICodeExperiences returns experience names in upstream order,
+// without the models/ prefix; these are the values accepted as aicode.experience.
+func parseGeminiAICodeExperiences(body []byte) ([]string, error) {
+	var config struct {
+		Experiences []struct {
+			Name string `json:"name"`
+		} `json:"availableExperiences"`
+	}
+	if err := json.Unmarshal(body, &config); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(config.Experiences))
+	for _, experience := range config.Experiences {
+		if name := strings.TrimPrefix(strings.TrimSpace(experience.Name), "models/"); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}
+
 func (s *GeminiMessagesCompatService) listGeminiAICodeModels(ctx context.Context, account *Account) (*UpstreamHTTPResult, error) {
 	if s.tokenProvider == nil {
 		return nil, fmt.Errorf("gemini token provider not configured")
@@ -156,30 +190,21 @@ func (s *GeminiMessagesCompatService) listGeminiAICodeModels(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, geminiAICodeBaseURL+"/v1alpha:fetchConfig", nil)
+	req, err := newGeminiAICodeFetchConfigRequest(ctx, token)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", geminiAICodeUserAgent)
 	result, err := s.doGeminiModelsGET(req, account)
 	if err != nil || result.StatusCode != http.StatusOK {
 		return result, err
 	}
-	var config struct {
-		Experiences []struct {
-			Name string `json:"name"`
-		} `json:"availableExperiences"`
-	}
-	if err := json.Unmarshal(result.Body, &config); err != nil {
+	names, err := parseGeminiAICodeExperiences(result.Body)
+	if err != nil {
 		return nil, err
 	}
-	models := make([]map[string]any, 0, len(config.Experiences))
-	for _, experience := range config.Experiences {
-		if experience.Name == "" {
-			continue
-		}
-		models = append(models, map[string]any{"name": "models/" + strings.TrimPrefix(experience.Name, "models/"), "displayName": experience.Name, "supportedGenerationMethods": []string{"generateContent", "streamGenerateContent"}})
+	models := make([]map[string]any, 0, len(names))
+	for _, name := range names {
+		models = append(models, map[string]any{"name": "models/" + name, "displayName": name, "supportedGenerationMethods": []string{"generateContent", "streamGenerateContent"}})
 	}
 	return geminiModelsJSONResult(http.StatusOK, map[string]any{"models": models})
 }
