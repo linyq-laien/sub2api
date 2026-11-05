@@ -35,7 +35,9 @@ func TestGeminiAICodeRequestAndTierRetry(t *testing.T) {
 		if calls == 1 {
 			return &http.Response{StatusCode: 403, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"USER_TIER_NOT_ENTITLED","metadata":{"resolved_tier":"free-tier"}}]}}`))}, nil
 		}
-		require.Equal(t, "free-tier", body["entitlement"].(map[string]any)["userTier"])
+		entitlement, ok := body["entitlement"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "free-tier", entitlement["userTier"])
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("{\n\"candidates\": []\n}"))}, nil
 	})
 	require.NoError(t, err)

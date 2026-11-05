@@ -74,11 +74,11 @@ func doGeminiAICodeRequest(req *http.Request, do func(*http.Request) (*http.Resp
 			return resp, err
 		}
 		stream, _ := req.Context().Value(geminiAICodeStreamKey{}).(bool)
-		if resp.StatusCode != http.StatusForbidden && !(resp.StatusCode == http.StatusOK && stream) {
+		if resp.StatusCode != http.StatusForbidden && (resp.StatusCode != http.StatusOK || !stream) {
 			return resp, nil
 		}
 		raw, err := io.ReadAll(io.LimitReader(resp.Body, (64<<20)+1))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +108,7 @@ func doGeminiAICodeRequest(req *http.Request, do func(*http.Request) (*http.Resp
 					}
 					var body map[string]any
 					err = json.NewDecoder(original).Decode(&body)
-					original.Close()
+					_ = original.Close()
 					if err != nil {
 						return nil, err
 					}
@@ -127,7 +127,7 @@ func doGeminiAICodeRequest(req *http.Request, do func(*http.Request) (*http.Resp
 					}
 					retry.Header = req.Header.Clone()
 					req = retry
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					goto retry
 				}
 			}
