@@ -621,6 +621,15 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				return nil, "", err
 			}
 
+			aicodeAction := "generateContent"
+			if useUpstreamStream {
+				aicodeAction = "streamGenerateContent"
+			}
+
+			if account.IsGeminiAICode() {
+				upstreamReq, err := buildGeminiAICodeRequest(ctx, account, accessToken, mappedModel, aicodeAction, geminiReq)
+				return upstreamReq, "x-request-id", err
+			}
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
 
 			action := "generateContent"
@@ -738,7 +747,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 		requestIDHeader = idHeader
 
-		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
+		resp, err = doGeminiAICodeRequest(upstreamReq, func(r *http.Request) (*http.Response, error) {
+			return s.httpUpstream.Do(r, proxyURL, account.ID, account.Concurrency)
+		})
 		if err != nil {
 			return nil, s.handleUpstreamTransportError(ctx, c, account, err)
 		}
@@ -1187,6 +1198,10 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return nil, "", err
 			}
 
+			if account.IsGeminiAICode() {
+				upstreamReq, err := buildGeminiAICodeRequest(ctx, account, accessToken, mappedModel, upstreamAction, body)
+				return upstreamReq, "x-request-id", err
+			}
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
 
 			// Two modes for OAuth:
@@ -1291,7 +1306,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 		requestIDHeader = idHeader
 
-		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
+		resp, err = doGeminiAICodeRequest(upstreamReq, func(r *http.Request) (*http.Response, error) {
+			return s.httpUpstream.Do(r, proxyURL, account.ID, account.Concurrency)
+		})
 		if err != nil {
 			transportErr := s.handleUpstreamTransportError(ctx, c, account, err)
 			// countTokens 不因上游链路故障而失败：本地估算兜底，不换号。

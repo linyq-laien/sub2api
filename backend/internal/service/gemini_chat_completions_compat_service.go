@@ -141,7 +141,9 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 		}
 		requestIDHeader = idHeader
 
-		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
+		resp, err = doGeminiAICodeRequest(upstreamReq, func(r *http.Request) (*http.Response, error) {
+			return s.httpUpstream.Do(r, proxyURL, account.ID, account.Concurrency)
+		})
 		if err != nil {
 			return nil, s.handleUpstreamTransportError(ctx, c, account, err)
 		}
@@ -368,6 +370,15 @@ func (s *GeminiMessagesCompatService) buildGeminiChatCompletionsUpstreamRequestF
 				return nil, "", err
 			}
 
+			aicodeAction := "generateContent"
+			if useUpstreamStream {
+				aicodeAction = "streamGenerateContent"
+			}
+
+			if account.IsGeminiAICode() {
+				upstreamReq, err := buildGeminiAICodeRequest(ctx, account, accessToken, mappedModel, aicodeAction, geminiReq)
+				return upstreamReq, "x-request-id", err
+			}
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
 			action := "generateContent"
 			if useUpstreamStream {

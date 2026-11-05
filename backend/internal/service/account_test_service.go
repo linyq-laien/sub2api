@@ -2395,6 +2395,9 @@ func (s *AccountTestService) reconcileOpenAI429State(ctx context.Context, accoun
 
 // geminiDefaultTestModel 返回 Gemini 连接测试未指定模型时使用的模型；Google One 账号只能使用其保守模型集。
 func geminiDefaultTestModel(account *Account) string {
+	if account.IsGeminiAICode() {
+		return "gemini-3.5-flash-lite"
+	}
 	if account.IsGeminiGoogleOne() {
 		return geminicli.GoogleOneModels[0].ID
 	}
@@ -2459,7 +2462,9 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
+	resp, err := doGeminiAICodeRequest(req, func(r *http.Request) (*http.Response, error) {
+		return s.httpUpstream.DoWithTLS(r, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
+	})
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
@@ -2579,6 +2584,10 @@ func (s *AccountTestService) buildGeminiOAuthRequest(ctx context.Context, accoun
 	accessToken, err := s.geminiTokenProvider.GetAccessToken(ctx, account)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	if account.IsGeminiAICode() {
+		return buildGeminiAICodeRequest(ctx, account, accessToken, modelID, "streamGenerateContent", payload)
 	}
 
 	projectID := strings.TrimSpace(account.GetCredential("project_id"))

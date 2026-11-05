@@ -166,6 +166,9 @@ func (s *GeminiMessagesCompatService) ForwardListModels(ctx context.Context, acc
 	if account == nil {
 		return nil, errors.New("account is nil")
 	}
+	if account.IsGeminiAICode() {
+		return s.listGeminiAICodeModels(ctx, account)
+	}
 	if !account.IsVertexServiceAccount() {
 		return s.forwardGeminiModelsGET(ctx, account, "/v1beta/models")
 	}
@@ -193,6 +196,28 @@ func (s *GeminiMessagesCompatService) ForwardGetModel(ctx context.Context, accou
 	if account == nil {
 		return nil, errors.New("account is nil")
 	}
+	if account.IsGeminiAICode() {
+		result, err := s.listGeminiAICodeModels(ctx, account)
+		if err != nil || result.StatusCode != http.StatusOK {
+			return result, err
+		}
+		var list struct {
+			Models []json.RawMessage `json:"models"`
+		}
+		if err := json.Unmarshal(result.Body, &list); err != nil {
+			return nil, err
+		}
+		for _, raw := range list.Models {
+			var item struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(raw, &item) == nil && item.Name == "models/"+strings.TrimPrefix(model, "models/") {
+				return geminiModelsJSONResult(http.StatusOK, raw)
+			}
+		}
+		return geminiModelsJSONResult(http.StatusNotFound, map[string]any{"error": map[string]any{"code": 404, "status": "NOT_FOUND", "message": "AI Code experience not found"}})
+	}
+
 	if !account.IsVertexServiceAccount() {
 		return s.forwardGeminiModelsGET(ctx, account, "/v1beta/models/"+model)
 	}

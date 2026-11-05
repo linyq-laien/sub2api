@@ -319,6 +319,9 @@ func (a *Account) IsOpenAICompatible() bool {
 }
 
 func (a *Account) GeminiOAuthType() string {
+	if a.IsGeminiAICode() {
+		return "aicode"
+	}
 	if a.Platform != PlatformGemini || a.Type != AccountTypeOAuth {
 		return ""
 	}

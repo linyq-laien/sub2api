@@ -111,7 +111,7 @@ func (p *GeminiTokenProvider) GetAccessToken(ctx context.Context, account *Accou
 	projectID := strings.TrimSpace(account.GetCredential("project_id"))
 	autoDetectProjectID := account.GetCredential("auto_detect_project_id") == "true"
 
-	if projectID == "" && autoDetectProjectID {
+	if projectID == "" && autoDetectProjectID && !account.IsGeminiAICode() {
 		if p.geminiOAuthService == nil {
 			return accessToken, nil
 		}
@@ -176,6 +176,9 @@ func (p *GeminiTokenProvider) getServiceAccountAccessToken(ctx context.Context, 
 }
 
 func GeminiTokenCacheKey(account *Account) string {
+	if account.IsGeminiAICode() {
+		return "gemini:aicode:account:" + strconv.FormatInt(account.ID, 10)
+	}
 	if account != nil && account.Type == AccountTypeServiceAccount {
 		if key, err := parseVertexServiceAccountKey(account); err == nil {
 			return vertexServiceAccountCacheKey(account, key)

@@ -764,3 +764,13 @@ func TestEffectiveOAuthConfig_CustomClient_NoScopeFiltering(t *testing.T) {
 		t.Errorf("自定义客户端不应过滤 drive.readonly，实际: %q", cfg.Scopes)
 	}
 }
+
+func TestAICodeOAuthConfigUsesOriginalClient(t *testing.T) {
+	cfg, err := EffectiveOAuthConfig(OAuthConfig{ClientID: "unrelated", ClientSecret: "unrelated"}, "aicode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ClientID != AICodeOAuthClientID || cfg.ClientSecret != AICodeOAuthClientSecret {
+		t.Fatal("AI Code tokens must be refreshed with the issuing Antigravity client")
+	}
+}

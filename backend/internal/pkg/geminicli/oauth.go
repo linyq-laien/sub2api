@@ -156,6 +156,9 @@ func base64URLEncode(data []byte) string {
 // https://www.googleapis.com/auth/generative-language), which will surface as
 // "restricted_client" / "Unregistered scope(s)" errors during browser authorization.
 func EffectiveOAuthConfig(cfg OAuthConfig, oauthType string) (OAuthConfig, error) {
+	if oauthType == "aicode" {
+		return OAuthConfig{ClientID: AICodeOAuthClientID, ClientSecret: AICodeOAuthClientSecret, Scopes: DefaultCodeAssistScopes}, nil
+	}
 	effective := OAuthConfig{
 		ClientID:     strings.TrimSpace(cfg.ClientID),
 		ClientSecret: strings.TrimSpace(cfg.ClientSecret),
