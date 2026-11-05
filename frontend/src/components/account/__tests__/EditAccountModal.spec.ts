@@ -336,6 +336,34 @@ describe('EditAccountModal', () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it('loads, preserves and clears the TLS fingerprint toggle for OpenAI OAuth accounts', async () => {
+    const account = {
+      ...buildAccount(),
+      type: 'oauth',
+      credentials: { access_token: 'at', refresh_token: 'rt', chatgpt_account_id: 'acct' },
+      extra: { codex_fingerprint_mode: 'full', enable_tls_fingerprint: true, codex_fingerprint_seed: 'kept-by-backend' },
+      enable_tls_fingerprint: true
+    } as any
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+
+    const toggle = wrapper.get('[data-testid="edit-openai-tls-fingerprint"] [data-testid="tls-fingerprint-toggle"]')
+    expect(toggle.classes()).toContain('bg-primary-600')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
+      enable_tls_fingerprint: true,
+      codex_fingerprint_mode: 'full'
+    })
+
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    const cleared = updateAccountMock.mock.calls[1]?.[1]?.extra
+    expect(cleared).not.toHaveProperty('enable_tls_fingerprint')
+    expect(cleared).toMatchObject({ codex_fingerprint_mode: 'full' })
+  })
+
   it('passes existing non-identity mappings to the whitelist selector and preserves them on save', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = { 'gpt-5.2': 'gpt-5.2', 'gpt-latest': 'deepseek-chat' }
