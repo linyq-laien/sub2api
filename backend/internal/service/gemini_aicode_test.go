@@ -41,7 +41,7 @@ func TestGeminiAICodeRequestAndTierRetry(t *testing.T) {
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("{\n\"candidates\": []\n}"))}, nil
 	})
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, 2, calls)
 	raw, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestGeminiAICodeLicenseErrorNotRetried(t *testing.T) {
 		return &http.Response{StatusCode: 403, Body: io.NopCloser(strings.NewReader(`{"error":{"details":[{"reason":"SUBSCRIPTION_REQUIRED"}]}}`))}, nil
 	})
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, 1, calls)
 	require.Equal(t, 403, resp.StatusCode)
 }
