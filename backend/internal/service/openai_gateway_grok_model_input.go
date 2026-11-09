@@ -88,6 +88,10 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 			item = map[string]any{"type": "message", "role": "user", "content": text}
 			itemType = "message"
 			role = "user"
+		case "configuration_update":
+			// Codex Desktop 写入会话历史的客户端私有配置标记；xAI ModelInput 反序列化
+			// 不认该类型（422 unknown item type），且对模型无语义，直接丢弃。
+			continue
 		case "custom_tool_call", "tool_search_call":
 			originalType := itemType
 			item["type"] = "function_call"

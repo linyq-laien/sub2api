@@ -53,6 +53,22 @@ func TestSanitizeGrokResponsesModelInputConvertsAgentMessage(t *testing.T) {
 	require.Equal(t, "assistant", items[2].Get("role").String())
 }
 
+func TestSanitizeGrokResponsesModelInputDropsConfigurationUpdate(t *testing.T) {
+	body := []byte(`{"input":[
+		{"type":"message","role":"user","content":"hi"},
+		{"type":"configuration_update","id":"cu_1","changes":{"model":"x"}},
+		{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}
+	]}`)
+
+	patched, err := sanitizeGrokResponsesModelInput(body)
+	require.NoError(t, err)
+	items := gjson.GetBytes(patched, "input").Array()
+	require.Len(t, items, 2)
+	require.Equal(t, "user", items[0].Get("role").String())
+	require.Equal(t, "assistant", items[1].Get("role").String())
+	require.NotContains(t, string(patched), "configuration_update")
+}
+
 func TestSanitizeGrokResponsesModelInputStripsOnlyNonPairCallIDs(t *testing.T) {
 	body := []byte(`{"input":[
 		{"type":"message","role":"user","call_id":"remove_message","content":"continue"},
