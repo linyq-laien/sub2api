@@ -2,10 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 const delegationEnvelope = `<codex_delegation><source_thread_id>thread-1</source_thread_id><input>do the work</input></codex_delegation>`
@@ -174,6 +177,35 @@ func TestNormalizeCodexDelegationBootstrapPreservesOrderAndIsIdempotent(t *testi
 	again, changedAgain := normalizeCodexDelegationBootstrap(got)
 	require.False(t, changedAgain)
 	require.Equal(t, got, again)
+}
+
+func TestNormalizeCodexDelegationBootstrapToleratesHostedCallsInHistory(t *testing.T) {
+	delegation := `{"type":"function_call_output","namespace":"codex_app","name":"send_message_to_thread","output":"` + delegationEnvelope + `"}`
+	for _, hosted := range []string{"web_search_call", "image_generation_call", "file_search_call", "code_interpreter_call", "mcp_call"} {
+		t.Run(hosted, func(t *testing.T) {
+			body := []byte(`{"model":"gpt-5","input":[{"type":"message","role":"user","content":"hi"},{"type":"` + hosted + `","id":"x_1","status":"completed"},` + delegation + `]}`)
+			got, changed := normalizeCodexDelegationBootstrap(body)
+			require.True(t, changed)
+			require.Equal(t, "message", gjson.GetBytes(got, "input.2.type").String())
+			require.Equal(t, hosted, gjson.GetBytes(got, "input.1.type").String())
+
+			gate := (&OpenAIGatewayHandler{}).validateFunctionCallOutputRequest(newValidationTestContext(), got, zap.NewNop())
+			require.True(t, gate)
+		})
+	}
+
+	// Client-side calls without call_id stay ambiguous and are still rejected.
+	body := []byte(`{"model":"gpt-5","input":[{"type":"function_call","name":"exec"},` + delegation + `]}`)
+	got, changed := normalizeCodexDelegationBootstrap(body)
+	require.False(t, changed)
+	require.Equal(t, body, got)
+}
+
+func newValidationTestContext() *gin.Context {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/responses", nil)
+	return c
 }
 
 func mustJSON(t *testing.T, value string) string {

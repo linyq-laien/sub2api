@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -69,6 +70,18 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 		pendingOutputImages = pendingOutputImages[:0]
 
 		switch itemType {
+		case "agent_message":
+			content, err := json.Marshal(item["content"])
+			if err != nil {
+				return nil, fmt.Errorf("serialize Grok agent message content: %w", err)
+			}
+			text := apicompat.AgentMessageText(content)
+			if text == "" {
+				continue
+			}
+			role = "user"
+			item = map[string]any{"type": "message", "role": role, "content": text}
+			itemType = "message"
 		case "text", "input_text", "output_text":
 			text := strings.TrimSpace(grokStringValue(item["text"]))
 			if text == "" {
@@ -79,15 +92,6 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 			}
 			item = map[string]any{"type": "message", "role": role, "content": text}
 			itemType = "message"
-		case "agent_message":
-			// Codex multi_agent_v2 子智能体信封；xAI 不认该类型，按原顺序拼成 user 消息。
-			text := grokAgentMessageText(item["content"])
-			if strings.TrimSpace(text) == "" {
-				continue
-			}
-			item = map[string]any{"type": "message", "role": "user", "content": text}
-			itemType = "message"
-			role = "user"
 		case "configuration_update":
 			// Codex Desktop 写入会话历史的客户端私有配置标记；xAI ModelInput 反序列化
 			// 不认该类型（422 unknown item type），且对模型无语义，直接丢弃。
@@ -172,30 +176,6 @@ func sanitizeGrokResponsesModelInput(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("set Grok Responses model input: %w", err)
 	}
 	return updated, nil
-}
-
-func grokAgentMessageText(value any) string {
-	if text, ok := value.(string); ok {
-		return text
-	}
-	parts, ok := value.([]any)
-	if !ok {
-		return ""
-	}
-	var b strings.Builder
-	for _, rawPart := range parts {
-		part, ok := rawPart.(map[string]any)
-		if !ok {
-			continue
-		}
-		switch grokStringValue(part["type"]) {
-		case "input_text", "text":
-			b.WriteString(grokStringValue(part["text"]))
-		case "encrypted_content":
-			b.WriteString(grokStringValue(part["encrypted_content"]))
-		}
-	}
-	return b.String()
 }
 
 type grokToolOutputImage struct {
