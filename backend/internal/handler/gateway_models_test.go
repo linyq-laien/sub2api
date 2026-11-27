@@ -1482,6 +1482,51 @@ func TestGatewayModels_OpenAICustomModelsListKeepsOpenAIResponseShapeForDefaultF
 	require.Empty(t, got.Data[0].CreatedAt)
 }
 
+// Groups on non-OpenAI platforms (here OpenCode Go) are listed to OpenAI SDKs and
+// Claude clients alike, so every entry carries both vendors' required fields.
+func TestGatewayModels_NonOpenAIPlatformListsOpenAIAndAnthropicFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const groupID int64 = 131
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{
+		byGroup: map[int64][]service.Account{
+			groupID: {{
+				ID:       1,
+				Platform: service.PlatformOpenCodeGo,
+				Credentials: map[string]any{
+					"model_mapping": map[string]any{"deepseek-v4.1-flash": "deepseek-v4.1-flash"},
+				},
+			}},
+		},
+	})
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: groupID, Platform: service.PlatformOpenCodeGo},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got struct {
+		Object string           `json:"object"`
+		Data   []map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, "list", got.Object)
+	require.Len(t, got.Data, 1)
+	require.Equal(t, map[string]any{
+		"id":           "deepseek-v4.1-flash",
+		"object":       "model",
+		"created":      float64(1704067200),
+		"owned_by":     service.PlatformOpenCodeGo,
+		"type":         "model",
+		"display_name": "deepseek-v4.1-flash",
+		"created_at":   "2024-01-01T00:00:00Z",
+	}, got.Data[0])
+}
+
 func modelIDsForTest(models []gatewayModelItemForTest) []string {
 	ids := make([]string, 0, len(models))
 	for _, model := range models {

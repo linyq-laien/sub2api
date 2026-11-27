@@ -1373,16 +1373,33 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 		writeGrokModelsList(c, modelIDs)
 		return
 	}
-	models := make([]claude.Model, 0, len(modelIDs))
+	models := make([]compatibleModel, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
-		models = append(models, claude.Model{
+		models = append(models, compatibleModel{
 			ID:          modelID,
+			Object:      "model",
+			Created:     1704067200,
+			OwnedBy:     platform,
 			Type:        "model",
 			DisplayName: modelID,
 			CreatedAt:   "2024-01-01T00:00:00Z",
 		})
 	}
 	writeModelsListResponse(c, models)
+}
+
+// compatibleModel carries both the OpenAI (object/created/owned_by) and the
+// Anthropic (type/display_name/created_at) model fields. Groups on CN and other
+// multi-protocol platforms serve OpenAI SDKs and Claude clients from the same
+// /v1/models endpoint, and each SDK requires its own fields.
+type compatibleModel struct {
+	ID          string `json:"id"`
+	Object      string `json:"object"`
+	Created     int64  `json:"created"`
+	OwnedBy     string `json:"owned_by"`
+	Type        string `json:"type"`
+	DisplayName string `json:"display_name"`
+	CreatedAt   string `json:"created_at"`
 }
 
 func writeAllowlistedModelsList(c *gin.Context, platform string, modelIDs []string) {

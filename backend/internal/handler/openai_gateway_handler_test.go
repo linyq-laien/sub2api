@@ -991,6 +991,7 @@ func TestOpenAIResponses_RejectsUnownedHTTPContinuation(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Contains(t, w.Body.String(), "previous_response_id is not available for this user")
+	require.Contains(t, w.Body.String(), "resend the full conversation history in input")
 }
 
 func TestOpenAIResponses_FunctionCallOutputHTTPGuidanceDoesNotSuggestPreviousResponseReuse(t *testing.T) {

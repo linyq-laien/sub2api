@@ -73,6 +73,13 @@ func advanceOpenAIWSCyberBlockState(blocked, pending, marked bool, turnErr error
 	return blocked, pending
 }
 
+// previousResponseIDUnavailableMessage keeps its legacy prefix: a sub2api
+// relaying through another sub2api matches "is not available for this user" to
+// stop sending previous_response_id (isOpenAICompatPreviousResponseUnsupported).
+const previousResponseIDUnavailableMessage = "previous_response_id is not available for this user: " +
+	"the response has expired, belongs to another user, or came from an upstream that keeps no " +
+	"server-side response state (such as Chat Completions providers); resend the full conversation history in input"
+
 var errOpenAIWSUnsupportedModelSwitch = errors.New("selected account does not support websocket model switch")
 
 func newOpenAIWSUnsupportedModelSwitchError(model string) error {
@@ -549,7 +556,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 		if !owned {
 			reqLog.Warn("openai.request_validation_failed", zap.String("reason", "previous_response_owner_mismatch"))
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is not available for this user")
+			// Missing and foreign IDs share one message so the check is not an
+			// existence oracle. Chat Completions upstreams never store response
+			// state, so their IDs always land here; the message names that case.
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", previousResponseIDUnavailableMessage)
 			return
 		}
 	}
